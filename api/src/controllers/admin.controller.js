@@ -6,6 +6,7 @@ import Review from "../model/review.model.js";
 import Coupon from "../model/coupon.model.js";
 import Location from "../model/location.model.js";
 import { AppError } from "../middleware/errorHandler.js";
+import { escapeRegex } from "../utils/regex.utils.js";
 
 export const getDashboardStats = async (req, res) => {
   const now = new Date();
@@ -102,7 +103,7 @@ export const getAllUsers = async (req, res) => {
   const query = {};
   if (role) query.role = role;
   if (active !== undefined) query.isActive = active === "true";
-  if (search) query.$or = [{ name: new RegExp(search, "i") }, { email: new RegExp(search, "i") }];
+  if (search) query.$or = [{ name: new RegExp(escapeRegex(search), "i") }, { email: new RegExp(escapeRegex(search), "i") }];
 
   const [users, total] = await Promise.all([
     User.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(parseInt(limit)),
@@ -135,10 +136,11 @@ export const getAllBookings = async (req, res) => {
   let bookings, total;
 
   if (search) {
-    const users = await User.find({ $or: [{ name: new RegExp(search, "i") }, { email: new RegExp(search, "i") }] }).select("_id");
+    const escaped = escapeRegex(search);
+    const users = await User.find({ $or: [{ name: new RegExp(escaped, "i") }, { email: new RegExp(escaped, "i") }] }).select("_id");
     query.$or = [
       { user: { $in: users.map((u) => u._id) } },
-      { bookingNumber: new RegExp(search, "i") },
+      { bookingNumber: new RegExp(escaped, "i") },
     ];
   }
 
@@ -160,25 +162,48 @@ export const getAllBookings = async (req, res) => {
   });
 };
 
+// Which statuses a booking may move to from its current status. isAvailable is a separate,
+// manually-controlled "delist this car" flag (see Admin car form) — it must not be
+// auto-toggled by booking status, or one active rental would block unrelated future dates.
+const ALLOWED_STATUS_TRANSITIONS = {
+  pending: ["confirmed", "cancelled", "no-show"],
+  confirmed: ["active", "cancelled", "no-show"],
+  active: ["completed", "cancelled"],
+  completed: [],
+  cancelled: [],
+  "no-show": ["cancelled"],
+};
+
 export const updateBookingStatus = async (req, res) => {
   const { status, adminNotes } = req.body;
 
-  const booking = await Booking.findByIdAndUpdate(
-    req.params.id,
-    { status, adminNotes },
-    { new: true }
-  );
+  const booking = await Booking.findById(req.params.id);
   if (!booking) throw new AppError("Booking not found", 404);
 
-  if (status === "active") {
-    await Car.findByIdAndUpdate(booking.car, { isAvailable: false });
-  }
-  if (["completed", "cancelled"].includes(status)) {
-    await Car.findByIdAndUpdate(booking.car, { isAvailable: true });
+  if (status && status !== booking.status) {
+    const allowedNext = ALLOWED_STATUS_TRANSITIONS[booking.status] || [];
+    if (!allowedNext.includes(status)) {
+      throw new AppError(`Cannot change booking status from "${booking.status}" to "${status}"`, 400);
+    }
+
+    if (status === "cancelled") {
+      booking.cancelledAt = new Date();
+      booking.cancelledBy = "admin";
+      booking.cancellationReason = booking.cancellationReason || adminNotes || "Cancelled by admin";
+      if (booking.paymentStatus === "paid" && !booking.refundAmount) {
+        booking.refundAmount = booking.totalAmount - booking.securityDeposit;
+      }
+    }
     if (status === "completed") {
       await Car.findByIdAndUpdate(booking.car, { $inc: { totalRentals: 1 } });
     }
+
+    booking.status = status;
   }
+
+  if (adminNotes !== undefined) booking.adminNotes = adminNotes;
+
+  await booking.save();
 
   res.json({ success: true, message: "Booking updated", data: { booking } });
 };

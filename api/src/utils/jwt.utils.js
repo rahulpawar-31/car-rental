@@ -12,6 +12,12 @@ export const generateRefreshToken = (userId) => {
   });
 };
 
+export const generateResetToken = (userId) => {
+  return jwt.sign({ id: userId, role: "reset" }, process.env.JWT_SECRET, {
+    expiresIn: "10m",
+  });
+};
+
 export const verifyAccessToken = (token) => {
   return jwt.verify(token, process.env.JWT_SECRET);
 };

@@ -17,15 +17,15 @@ const TABS = [
   { id: 'password', label: 'Change Password', icon: Lock },
 ]
 
-function InputField({ label, icon: Icon, ...props }) {
+function InputField({ label, icon: Icon, id, ...props }) {
   return (
     <div>
-      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
+      <label htmlFor={id} className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
         {label}
       </label>
       <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2.5 focus-within:border-teal-400 transition-colors">
         {Icon && <Icon className="w-4 h-4 text-gray-400 shrink-0" />}
-        <input className="flex-1 text-sm text-gray-800 outline-none bg-transparent placeholder-gray-400" {...props} />
+        <input id={id} className="flex-1 text-sm text-gray-800 outline-none bg-transparent placeholder-gray-400" {...props} />
       </div>
     </div>
   )
@@ -265,7 +265,7 @@ export default function Profile() {
               <User className="w-4 h-4 text-teal-500" /> Basic Information
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InputField label="Full Name" icon={User} type="text" required value={form.name}
+              <InputField id="profile-name" label="Full Name" icon={User} type="text" required value={form.name}
                 onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
@@ -276,7 +276,7 @@ export default function Profile() {
                   <span className="flex-1 text-sm text-gray-400 select-none">{user?.email}</span>
                 </div>
               </div>
-              <InputField label="Phone" icon={Phone} type="tel" value={form.phone} placeholder="+91 98765 43210"
+              <InputField id="profile-phone" label="Phone" icon={Phone} type="tel" value={form.phone} placeholder="+91 98765 43210"
                 onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} />
             </div>
           </div>
@@ -287,16 +287,16 @@ export default function Profile() {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
-                <InputField label="Street Address" icon={MapPin} type="text" value={form.street}
+                <InputField id="profile-street" label="Street Address" icon={MapPin} type="text" value={form.street}
                   placeholder="123 Main Street" onChange={e => setForm(p => ({ ...p, street: e.target.value }))} />
               </div>
-              <InputField label="City" type="text" value={form.city}
+              <InputField id="profile-city" label="City" type="text" value={form.city}
                 placeholder="Mumbai" onChange={e => setForm(p => ({ ...p, city: e.target.value }))} />
-              <InputField label="State" type="text" value={form.state}
+              <InputField id="profile-state" label="State" type="text" value={form.state}
                 placeholder="Maharashtra" onChange={e => setForm(p => ({ ...p, state: e.target.value }))} />
-              <InputField label="Country" type="text" value={form.country}
+              <InputField id="profile-country" label="Country" type="text" value={form.country}
                 placeholder="India" onChange={e => setForm(p => ({ ...p, country: e.target.value }))} />
-              <InputField label="ZIP Code" type="text" value={form.zipCode}
+              <InputField id="profile-zip" label="ZIP Code" type="text" value={form.zipCode}
                 placeholder="400001" onChange={e => setForm(p => ({ ...p, zipCode: e.target.value }))} />
             </div>
           </div>
@@ -452,21 +452,21 @@ export default function Profile() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
+              <label htmlFor="profile-license-number" className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
                 License Number <span className="text-red-400">*</span>
               </label>
-              <input required value={licenseForm.number}
+              <input id="profile-license-number" required value={licenseForm.number}
                 onChange={e => setLicenseForm(p => ({ ...p, number: e.target.value }))}
                 placeholder="MH1234567890"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-teal-400 transition-colors" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
+              <label htmlFor="profile-license-expiry" className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
                 Expiry Date <span className="text-red-400">*</span>
               </label>
               <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                 <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-                <input required type="date" value={licenseForm.expiryDate}
+                <input id="profile-license-expiry" required type="date" value={licenseForm.expiryDate}
                   min={new Date().toISOString().split('T')[0]}
                   onChange={e => setLicenseForm(p => ({ ...p, expiryDate: e.target.value }))}
                   className="flex-1 text-sm outline-none bg-transparent" />
@@ -491,15 +491,15 @@ export default function Profile() {
       {tab === 'password' && (
         <form onSubmit={handlePasswordChange} className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
           {[
-            { label: 'Current Password', key: 'currentPassword', placeholder: '••••••••' },
-            { label: 'New Password',     key: 'newPassword',     placeholder: 'Min. 8 characters' },
-            { label: 'Confirm New Password', key: 'confirmPassword', placeholder: 'Re-enter new password' },
-          ].map(({ label, key, placeholder }) => (
+            { label: 'Current Password', key: 'currentPassword', placeholder: '••••••••', id: 'profile-current-password' },
+            { label: 'New Password',     key: 'newPassword',     placeholder: 'Min. 8 characters', id: 'profile-new-password' },
+            { label: 'Confirm New Password', key: 'confirmPassword', placeholder: 'Re-enter new password', id: 'profile-confirm-password' },
+          ].map(({ label, key, placeholder, id }) => (
             <div key={key}>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">{label}</label>
+              <label htmlFor={id} className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">{label}</label>
               <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                 <Lock className="w-4 h-4 text-gray-400 shrink-0" />
-                <input type="password" required placeholder={placeholder} value={pwForm[key]}
+                <input id={id} type="password" required placeholder={placeholder} value={pwForm[key]}
                   onChange={e => setPwForm(p => ({ ...p, [key]: e.target.value }))}
                   className="flex-1 text-sm outline-none bg-transparent" />
               </div>

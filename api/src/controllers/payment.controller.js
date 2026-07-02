@@ -15,6 +15,7 @@ export const createPaymentIntent = async (req, res) => {
   const booking = await Booking.findOne({ _id: bookingId, user: req.user._id }).populate("car", "name brand");
   if (!booking) throw new AppError("Booking not found", 404);
   if (booking.paymentStatus === "paid") throw new AppError("Booking already paid", 400);
+  if (booking.status !== "pending") throw new AppError(`Booking is ${booking.status} and can no longer be paid for`, 400);
 
   const amountInPaise = Math.round(booking.totalAmount * 100);
 
@@ -65,19 +66,39 @@ export const confirmPayment = async (req, res) => {
   }
 
   // Fix #2: bind lookup to the requesting user so user A cannot confirm user B's payment
+  const existing = await Payment.findOne({ razorpayOrderId, user: req.user._id });
+  if (!existing) throw new AppError("Payment record not found", 404);
+
+  // Fix #12: idempotent retry — a client retry or a race with the webhook can call this
+  // twice for the same order. Without this, the second call would find the booking no
+  // longer "pending" and wrongly flip an already-succeeded payment to "failed".
+  if (existing.status === "succeeded") {
+    return res.json({ success: true, message: "Payment verified and confirmed", data: { payment: existing } });
+  }
+
   const payment = await Payment.findOneAndUpdate(
-    { razorpayOrderId, user: req.user._id },
+    { _id: existing._id, status: { $ne: "succeeded" } },
     { status: "succeeded", razorpayPaymentId, razorpaySignature },
     { new: true }
   );
+  if (!payment) {
+    // Lost the race to a concurrent confirm call that just succeeded — treat as success too.
+    const latest = await Payment.findById(existing._id);
+    return res.json({ success: true, message: "Payment verified and confirmed", data: { payment: latest } });
+  }
 
-  if (!payment) throw new AppError("Payment record not found", 404);
-
-  await Booking.findByIdAndUpdate(payment.booking, {
-    status: "confirmed",
-    paymentStatus: "paid",
-    razorpayOrderId,
-  });
+  // Fix #11: the booking may have been cancelled (or already confirmed by a prior race)
+  // since this Razorpay order was created — don't let a stale checkout session revive it.
+  const booking = await Booking.findOneAndUpdate(
+    { _id: payment.booking, status: "pending" },
+    { status: "confirmed", paymentStatus: "paid", razorpayOrderId },
+    { new: true }
+  );
+  if (!booking) {
+    payment.status = "failed";
+    await payment.save();
+    throw new AppError("This booking is no longer payable — it may have been cancelled or already confirmed", 409);
+  }
 
   res.json({ success: true, message: "Payment verified and confirmed", data: { payment } });
 };

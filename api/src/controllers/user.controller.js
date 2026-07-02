@@ -2,6 +2,7 @@ import User from "../model/user.model.js";
 import Booking from "../model/booking.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { cloudinary } from "../config/cloudinary.js";
+import { clearTokenCookies } from "../utils/jwt.utils.js";
 
 export const getProfile = async (req, res) => {
   const user = await User.findById(req.user._id)
@@ -49,9 +50,11 @@ export const changePassword = async (req, res) => {
 
   user.password = newPassword;
   user.passwordChangedAt = new Date();
+  user.refreshToken = undefined;
   await user.save();
 
-  res.json({ success: true, message: "Password changed successfully" });
+  clearTokenCookies(res);
+  res.json({ success: true, message: "Password changed successfully. Please log in again." });
 };
 
 export const getRentalHistory = async (req, res) => {
@@ -89,7 +92,7 @@ export const saveCar = async (req, res) => {
   const user = await User.findById(req.user._id);
   const { carId } = req.params;
 
-  const idx = user.savedCars.indexOf(carId);
+  const idx = user.savedCars.findIndex((id) => id.toString() === carId);
   if (idx > -1) {
     user.savedCars.splice(idx, 1);
     await user.save({ validateBeforeSave: false });
@@ -105,7 +108,7 @@ export const saveLocation = async (req, res) => {
   const user = await User.findById(req.user._id);
   const { locationId } = req.params;
 
-  const idx = user.savedLocations.indexOf(locationId);
+  const idx = user.savedLocations.findIndex((id) => id.toString() === locationId);
   if (idx > -1) {
     user.savedLocations.splice(idx, 1);
     await user.save({ validateBeforeSave: false });

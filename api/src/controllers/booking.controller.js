@@ -29,12 +29,22 @@ export const createBooking = async (req, res) => {
 
   // Fix #7: price by rental type
   const msPerDay = 24 * 60 * 60 * 1000;
+  const msPerHour = 60 * 60 * 1000;
+  const durationHours = (drop - pickup) / msPerHour;
   let totalDays, baseAmount;
-  if (rentalType === "hour" && totalHours > 0) {
+  if (rentalType === "hour") {
+    if (!(totalHours > 0)) throw new AppError("totalHours is required for hourly rentals", 400);
+    // totalHours must match the actual pickup/drop span, since that's what blocks the car
+    if (Math.abs(durationHours - totalHours) > 1) {
+      throw new AppError("totalHours must match the selected pickup/drop time range", 400);
+    }
     const pricePerHour = Math.round(car.pricePerDay / 8);
     baseAmount = pricePerHour * totalHours;
     totalDays = 0;
   } else if (rentalType === "airport") {
+    if (durationHours > 24) {
+      throw new AppError("Airport transfer bookings can span at most 24 hours — use a daily rental for longer trips", 400);
+    }
     baseAmount = Math.round(car.pricePerDay * 0.4);
     totalDays = 1;
   } else {
@@ -108,6 +118,24 @@ export const createBooking = async (req, res) => {
     notes,
     status: "pending",
   });
+
+  // Fix #10: the availability check above (line 19-24) and this create() aren't atomic,
+  // so two concurrent requests for the same car/dates can both pass it. Re-verify now that
+  // both rows exist; whichever booking has the smaller _id (created first) wins.
+  const earlierConflict = await Booking.findOne({
+    _id: { $lt: booking._id },
+    car: carId,
+    status: { $in: ["pending", "confirmed", "active"] },
+    pickupDate: { $lte: drop },
+    dropDate: { $gte: pickup },
+  });
+  if (earlierConflict) {
+    await Booking.deleteOne({ _id: booking._id });
+    if (appliedCoupon) {
+      await Coupon.updateOne({ _id: appliedCoupon }, { $inc: { usageCount: -1 }, $pull: { usedBy: req.user._id } });
+    }
+    throw new AppError("Car is not available for the selected dates", 409);
+  }
 
   const populatedBooking = await Booking.findById(booking._id)
     .populate("car", "name brand model images")
@@ -235,11 +263,16 @@ export const rescheduleBooking = async (req, res) => {
   const taxAmount = Math.round(taxableAmount * TAX_RATE);
   const totalAmount = taxableAmount + taxAmount + car.securityDeposit;
 
-  // Fix #3: void any pending Razorpay order so user can't pay old (lower) amount
-  if (booking.paymentStatus !== "paid") {
-    await Payment.deleteOne({ booking: booking._id, status: "pending" });
-    booking.paymentStatus = "pending";
-  }
+  // Fix #10: snapshot originals in case the post-save conflict check below forces a rollback
+  const original = {
+    pickupDate: booking.pickupDate,
+    dropDate: booking.dropDate,
+    totalDays: booking.totalDays,
+    baseAmount: booking.baseAmount,
+    taxAmount: booking.taxAmount,
+    totalAmount: booking.totalAmount,
+    paymentStatus: booking.paymentStatus,
+  };
 
   booking.pickupDate = pickup;
   booking.dropDate = drop;
@@ -247,7 +280,30 @@ export const rescheduleBooking = async (req, res) => {
   booking.baseAmount = baseAmount;
   booking.taxAmount = taxAmount;
   booking.totalAmount = totalAmount;
+  if (booking.paymentStatus !== "paid") booking.paymentStatus = "pending";
   await booking.save();
+
+  // Re-verify: the conflict check above and this save() aren't atomic, so a concurrent
+  // booking/reschedule for the same car could have landed on these dates in between.
+  const overlapping = await Booking.findOne({
+    _id: { $ne: booking._id },
+    car: booking.car,
+    status: { $in: ["pending", "confirmed", "active"] },
+    pickupDate: { $lte: drop },
+    dropDate: { $gte: pickup },
+  });
+  if (overlapping) {
+    Object.assign(booking, original);
+    await booking.save();
+    throw new AppError("Car is not available for the selected dates", 409);
+  }
+
+  // Fix #3: now that the reschedule is confirmed, void any stale pending Razorpay order
+  // so the user can't pay the old (lower) amount. Done after the rollback check above so a
+  // failed reschedule doesn't orphan a still-valid pending payment for the original dates.
+  if (original.paymentStatus !== "paid") {
+    await Payment.deleteOne({ booking: booking._id, status: "pending" });
+  }
 
   const updatedBooking = await Booking.findById(booking._id)
     .populate("car", "name brand model images")

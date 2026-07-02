@@ -3,7 +3,7 @@ import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import {
   Search, X, ChevronDown, ChevronUp, Star,
   MapPin, Users, Settings, Fuel, Phone, Clock,
-  Check,
+  Check, SlidersHorizontal,
 } from 'lucide-react'
 import { getCars, getCarFilters } from '../api/cars'
 import { getLocationById } from '../api/locations'
@@ -35,7 +35,7 @@ const RENTAL_TIPS = [
   },
 ]
 
-// ── Horizontal list-style car card ──────────────────────────────────────────
+// ── Stacked car card: full-bleed image on top, details below ────────────────
 function CarListCard({ car, pickupLocation, dropLocation }) {
   const primaryImage = car.images?.find(i => i.isPrimary) || car.images?.[0]
   const features = car.features?.slice(0, 6) || []
@@ -48,15 +48,15 @@ function CarListCard({ car, pickupLocation, dropLocation }) {
     <Link
       to={hasLocation ? `/booking/${car._id}` : `/cars/${car._id}`}
       state={hasLocation ? { pickupLocation: pickupLocation || null, dropLocation: dropLocation || null } : undefined}
-      className="bg-white border border-gray-200 rounded-xl overflow-hidden flex hover:shadow-lg transition-shadow duration-300 group"
+      className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-300 group"
     >
       {/* Image */}
-      <div className="w-64 xl:w-80 h-[220px] shrink-0 relative bg-gray-50 overflow-hidden flex items-center justify-center">
+      <div className="relative w-full aspect-[16/10] shrink-0 bg-gray-100 overflow-hidden">
         {primaryImage ? (
           <img
             src={primaryImage.url}
             alt={`${car.brand} ${car.model}`}
-            className="w-full h-full object-contain object-center p-3 group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
           <div className="flex items-center justify-center text-6xl w-full h-full bg-gradient-to-br from-gray-100 to-gray-200">
@@ -81,8 +81,8 @@ function CarListCard({ car, pickupLocation, dropLocation }) {
       <div className="flex-1 min-w-0 p-5 flex flex-col">
         {/* Title row */}
         <div className="flex items-start justify-between gap-4 mb-2">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900 leading-tight">
+          <div className="min-w-0">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight truncate">
               {car.brand} {car.model}
             </h3>
             {/* Stars */}
@@ -105,7 +105,7 @@ function CarListCard({ car, pickupLocation, dropLocation }) {
 
           {/* Price */}
           <div className="text-right shrink-0">
-            <div className="text-2xl font-extrabold text-gray-900">
+            <div className="text-xl sm:text-2xl font-extrabold text-gray-900">
               ₹{car.pricePerDay?.toLocaleString('en-IN')}
             </div>
             <div className="text-xs text-gray-400 mt-0.5">Per Day</div>
@@ -113,7 +113,7 @@ function CarListCard({ car, pickupLocation, dropLocation }) {
         </div>
 
         {/* Specs row */}
-        <div className="flex items-center flex-wrap gap-4 text-sm text-gray-500 mb-4">
+        <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 text-sm text-gray-500 mb-4">
           {car.seats && (
             <span className="flex items-center gap-1.5">
               <Users className="w-4 h-4 text-gray-400" /> {car.seats} Seats
@@ -130,26 +130,26 @@ function CarListCard({ car, pickupLocation, dropLocation }) {
             </span>
           )}
           {car.location && (
-            <span className="flex items-center gap-1.5">
-              <MapPin className="w-4 h-4 text-gray-400" /> {car.location.city || car.location.name}
+            <span className="flex items-center gap-1.5 truncate">
+              <MapPin className="w-4 h-4 text-gray-400 shrink-0" /> {car.location.city || car.location.name}
             </span>
           )}
         </div>
 
         {/* Features — 2-column checklist */}
         {features.length > 0 && (
-          <div className="mt-auto grid grid-cols-2 gap-x-6 gap-y-1.5 pt-3 border-t border-gray-100">
-            <div className="space-y-1.5">
+          <div className="mt-auto grid grid-cols-2 gap-x-4 gap-y-1.5 pt-3 border-t border-gray-100">
+            <div className="space-y-1.5 min-w-0">
               {leftFeat.map((f, i) => (
                 <span key={i} className="flex items-center gap-1.5 text-sm text-gray-600">
-                  <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" /> {f}
+                  <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" /> <span className="truncate">{f}</span>
                 </span>
               ))}
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               {rightFeat.map((f, i) => (
                 <span key={i} className="flex items-center gap-1.5 text-sm text-gray-600">
-                  <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" /> {f}
+                  <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" /> <span className="truncate">{f}</span>
                 </span>
               ))}
             </div>
@@ -206,6 +206,72 @@ function CheckGroup({ options, value, onChange }) {
   )
 }
 
+// ── Filter controls: search / transmission / fuel / price — shared by the
+// desktop sidebar and the mobile drawer so they can't drift out of sync ──────
+function FiltersPanel({ query, update, filterData, hasFilters, clearFilters }) {
+  return (
+    <>
+      {/* Search */}
+      <div className="mb-3 pb-3 border-b border-gray-100">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search brand or model..."
+            value={query.search}
+            onChange={e => update({ search: e.target.value })}
+            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-teal-400 transition-colors"
+          />
+        </div>
+      </div>
+
+      <FilterSection title="Transmission" defaultOpen>
+        <CheckGroup
+          options={TRANSMISSIONS}
+          value={query.transmission}
+          onChange={val => update({ transmission: val })}
+        />
+      </FilterSection>
+
+      <FilterSection title="Fuel Type">
+        <CheckGroup
+          options={filterData.fuelTypes}
+          value={query.fuelType}
+          onChange={val => update({ fuelType: val })}
+        />
+      </FilterSection>
+
+      <FilterSection title="Price Range (₹/day)">
+        <div className="space-y-2">
+          <input
+            type="number"
+            placeholder="Min price"
+            value={query.minPrice}
+            onChange={e => update({ minPrice: e.target.value })}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-teal-400"
+          />
+          <input
+            type="number"
+            placeholder="Max price"
+            value={query.maxPrice}
+            onChange={e => update({ maxPrice: e.target.value })}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-teal-400"
+          />
+        </div>
+      </FilterSection>
+
+      {hasFilters && (
+        <button
+          onClick={clearFilters}
+          className="w-full mt-2 flex items-center justify-center gap-2 text-sm text-red-500 hover:text-red-600 font-medium border border-red-200 hover:border-red-300 rounded-lg py-2 transition-colors"
+        >
+          <X className="w-3.5 h-3.5" /> Clear All Filters
+        </button>
+      )}
+    </>
+  )
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 export default function Cars() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -216,6 +282,7 @@ export default function Cars() {
   const [pagination, setPagination]   = useState({})
   const [filterData, setFilterData]   = useState({ brands: [], types: [], fuelTypes: [], priceRange: { min: 0, max: 10000 } })
   const [loading, setLoading]         = useState(true)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
   const [query, setQuery] = useState({
     search:       searchParams.get('search')       || '',
@@ -245,12 +312,14 @@ export default function Cars() {
 
   useEffect(() => {
     setLoading(true)
+    const controller = new AbortController()
     const params = {}
     Object.entries(query).forEach(([k, v]) => { if (v) params[k] = v })
-    getCars(params)
+    getCars(params, { signal: controller.signal })
       .then(({ data }) => { setCars(data.data.cars); setPagination(data.data.pagination) })
       .catch(() => {})
-      .finally(() => setLoading(false))
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
   }, [query])
 
   const update = (updates) => setQuery(prev => ({ ...prev, ...updates, page: 1 }))
@@ -339,6 +408,16 @@ export default function Cars() {
               <Search className="w-4 h-4" /> Search
             </button>
 
+            {/* Mobile-only: search/transmission/fuel/price live in the sidebar,
+                which is hidden below lg — surface them via a drawer instead */}
+            <button
+              onClick={() => setMobileFiltersOpen(true)}
+              className="lg:hidden flex items-center gap-2 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-semibold text-gray-600 hover:border-teal-400 hover:text-teal-600 transition-colors shrink-0"
+            >
+              <SlidersHorizontal className="w-4 h-4" /> Filters
+              {hasFilters && <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />}
+            </button>
+
             {hasFilters && (
               <button
                 onClick={clearFilters}
@@ -400,7 +479,7 @@ export default function Cars() {
               </div>
             ) : (
               <>
-                <div className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {cars.map(car => <CarListCard key={car._id} car={car} pickupLocation={pickupLocation} dropLocation={dropLocation} />)}
                 </div>
 
@@ -524,69 +603,34 @@ export default function Cars() {
               <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">
                 Filters
               </h3>
-
-              {/* Search */}
-              <div className="mb-3 pb-3 border-b border-gray-100">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search brand or model..."
-                    value={query.search}
-                    onChange={e => update({ search: e.target.value })}
-                    className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-teal-400 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <FilterSection title="Transmission" defaultOpen>
-                <CheckGroup
-                  options={TRANSMISSIONS}
-                  value={query.transmission}
-                  onChange={val => update({ transmission: val })}
-                />
-              </FilterSection>
-
-              <FilterSection title="Fuel Type">
-                <CheckGroup
-                  options={filterData.fuelTypes}
-                  value={query.fuelType}
-                  onChange={val => update({ fuelType: val })}
-                />
-              </FilterSection>
-
-              <FilterSection title="Price Range (₹/day)">
-                <div className="space-y-2">
-                  <input
-                    type="number"
-                    placeholder="Min price"
-                    value={query.minPrice}
-                    onChange={e => update({ minPrice: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-teal-400"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max price"
-                    value={query.maxPrice}
-                    onChange={e => update({ maxPrice: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-teal-400"
-                  />
-                </div>
-              </FilterSection>
-
-              {hasFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="w-full mt-2 flex items-center justify-center gap-2 text-sm text-red-500 hover:text-red-600 font-medium border border-red-200 hover:border-red-300 rounded-lg py-2 transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" /> Clear All Filters
-                </button>
-              )}
+              <FiltersPanel query={query} update={update} filterData={filterData} hasFilters={hasFilters} clearFilters={clearFilters} />
             </div>
 
           </aside>
         </div>
       </div>
+
+      {/* ── Mobile filter drawer ──────────────────────────────────────────── */}
+      {mobileFiltersOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileFiltersOpen(false)} />
+          <div className="relative w-full max-w-xs h-full bg-white shadow-xl overflow-y-auto p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide">Filters</h3>
+              <button onClick={() => setMobileFiltersOpen(false)} aria-label="Close filters" className="p-1 text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <FiltersPanel query={query} update={update} filterData={filterData} hasFilters={hasFilters} clearFilters={clearFilters} />
+            <button
+              onClick={() => setMobileFiltersOpen(false)}
+              className="w-full mt-4 bg-teal-500 hover:bg-teal-600 text-white font-bold py-2.5 rounded-lg text-sm transition-colors"
+            >
+              Show {pagination.total ?? ''} cars
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

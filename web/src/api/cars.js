@@ -1,6 +1,6 @@
 import api from './client'
 
-export const getCars = (params) => api.get('/cars', { params })
+export const getCars = (params, config) => api.get('/cars', { params, ...config })
 export const getCarById = (id) => api.get(`/cars/${id}`)
 export const getFeaturedCars = () => api.get('/cars/featured')
 export const getCarFilters = () => api.get('/cars/filters')

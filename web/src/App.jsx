@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { useEffect } from 'react'
 import Layout from './components/layout/Layout'
@@ -38,11 +38,6 @@ function AppInit() {
   return null
 }
 
-function RootRedirect() {
-  const { user } = useAuthStore()
-  return <Navigate to={user ? '/home' : '/login'} replace />
-}
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -51,12 +46,12 @@ export default function App() {
       <Toaster position="top-right" richColors />
       <Routes>
         {/* Auth pages — no header/footer */}
-        <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
         <Route element={<Layout />}>
+          <Route path="/" element={<Home />} />
           <Route path="/home" element={<Home />} />
           <Route path="/cars" element={<Cars />} />
           <Route path="/cars/:id" element={<CarDetail />} />

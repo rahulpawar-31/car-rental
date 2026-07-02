@@ -10,12 +10,12 @@ export default function CarCard({ car }) {
       className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-300 group flex flex-col"
     >
       {/* Image */}
-      <div className="relative h-48 bg-white overflow-hidden shrink-0">
+      <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden shrink-0">
         {primaryImage ? (
           <img
             src={primaryImage.url}
             alt={`${car.brand} ${car.model}`}
-            className="w-full h-full object-contain object-center p-3 group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-br from-gray-100 to-gray-200">🚗</div>

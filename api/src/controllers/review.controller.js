@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Review from "../model/review.model.js";
 import Booking from "../model/booking.model.js";
 import { AppError } from "../middleware/errorHandler.js";
@@ -34,6 +35,7 @@ export const createReview = async (req, res) => {
 
 export const getCarReviews = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
+  if (!mongoose.isValidObjectId(req.params.carId)) throw new AppError("Invalid car ID", 400);
 
   const query = { car: req.params.carId, isApproved: true, isVisible: true };
 
@@ -47,7 +49,7 @@ export const getCarReviews = async (req, res) => {
   ]);
 
   const ratingStats = await Review.aggregate([
-    { $match: { car: reviews[0]?.car || null, isApproved: true } },
+    { $match: { car: new mongoose.Types.ObjectId(req.params.carId), isApproved: true } },
     {
       $group: {
         _id: null,
@@ -104,7 +106,9 @@ export const reportReview = async (req, res) => {
   const review = await Review.findById(req.params.id);
   if (!review) throw new AppError("Review not found", 404);
 
-  if (review.reportedBy.includes(req.user._id)) throw new AppError("Already reported", 400);
+  if (review.reportedBy.some((id) => id.toString() === req.user._id.toString())) {
+    throw new AppError("Already reported", 400);
+  }
 
   review.reportedBy.push(req.user._id);
   if (review.reportedBy.length >= 3) review.isFlagged = true;

@@ -20,6 +20,7 @@ import {
 import { refundPayment } from '../api/payments'
 import { getLocations } from '../api/locations'
 import Spinner from '../components/ui/Spinner'
+import ConfirmModal from '../components/ui/ConfirmModal'
 import { toast } from 'sonner'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -681,6 +682,7 @@ function CouponsTab() {
   const [deleting, setDeleting] = useState(null)
   const [editingCoupon, setEditingCoupon] = useState(null)
   const [editForm, setEditForm] = useState(EMPTY_COUPON)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const load = () => {
     setLoading(true)
@@ -731,7 +733,7 @@ function CouponsTab() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this coupon?')) return
+    setDeleteTarget(null)
     setDeleting(id)
     try {
       await deleteCoupon(id)
@@ -791,6 +793,14 @@ function CouponsTab() {
 
   return (
     <div>
+      {deleteTarget && (
+        <ConfirmModal
+          message={`Delete coupon "${deleteTarget.code}"?`}
+          confirmLabel="Delete"
+          onConfirm={() => handleDelete(deleteTarget._id)}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
       <div className="flex items-center justify-between mb-5">
         <span className="text-sm text-gray-500">{coupons.length} coupons</span>
         <button onClick={() => setShowForm(true)}
@@ -989,7 +999,7 @@ function CouponsTab() {
                           className="text-gray-400 hover:text-blue-600">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(c._id)} disabled={deleting === c._id}
+                        <button onClick={() => setDeleteTarget(c)} disabled={deleting === c._id}
                           className="text-gray-400 hover:text-red-500 disabled:opacity-40">
                           {deleting === c._id ? <Spinner size="sm" /> : <Trash2 className="w-4 h-4" />}
                         </button>
@@ -1102,8 +1112,10 @@ function CarsTab() {
     finally { setSaving(false) }
   }
 
+  const [deleteTarget, setDeleteTarget] = useState(null)
+
   const handleDelete = async (id) => {
-    if (!confirm('Delete this car?')) return
+    setDeleteTarget(null)
     try { await deleteAdminCar(id); toast.success('Car deleted'); load() }
     catch (err) { toast.error(err.response?.data?.message || 'Failed to delete') }
   }
@@ -1114,6 +1126,14 @@ function CarsTab() {
 
   return (
     <div>
+      {deleteTarget && (
+        <ConfirmModal
+          message={`Delete "${deleteTarget.brand} ${deleteTarget.model}"?`}
+          confirmLabel="Delete"
+          onConfirm={() => handleDelete(deleteTarget._id)}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
       <div className="flex items-center justify-between mb-4">
         <div className="relative w-60">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -1166,7 +1186,7 @@ function CarsTab() {
                       <button onClick={() => openEdit(car)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleDelete(car._id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                      <button onClick={() => setDeleteTarget(car)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -1355,8 +1375,10 @@ function LocationsTab() {
     finally { setSaving(false) }
   }
 
+  const [deleteTarget, setDeleteTarget] = useState(null)
+
   const handleDelete = async (loc) => {
-    if (!confirm(`Deactivate "${loc.name}"?`)) return
+    setDeleteTarget(null)
     try { await deleteAdminLocation(loc._id); toast.success('Location deactivated'); load() }
     catch (err) { toast.error(err.response?.data?.message || 'Failed') }
   }
@@ -1374,6 +1396,14 @@ function LocationsTab() {
 
   return (
     <div>
+      {deleteTarget && (
+        <ConfirmModal
+          message={`Deactivate "${deleteTarget.name}"?`}
+          confirmLabel="Deactivate"
+          onConfirm={() => handleDelete(deleteTarget)}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
       <div className="flex justify-end mb-4">
         <button onClick={openCreate}
           className="flex items-center gap-1.5 bg-teal-500 hover:bg-teal-600 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors">
@@ -1422,7 +1452,7 @@ function LocationsTab() {
                       <button onClick={() => openEdit(loc)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleDelete(loc)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                      <button onClick={() => setDeleteTarget(loc)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -1495,6 +1525,7 @@ function PaymentsTab() {
   const [total, setTotal]       = useState(0)
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [refunding, setRefunding] = useState(null)
+  const [refundTarget, setRefundTarget] = useState(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -1512,7 +1543,7 @@ function PaymentsTab() {
   useEffect(() => { load() }, [load])
 
   const handleRefund = async (payment) => {
-    if (!confirm(`Issue refund for booking #${payment.booking?.bookingNumber || ''}? This cannot be undone.`)) return
+    setRefundTarget(null)
     setRefunding(payment._id)
     try {
       const { data } = await refundPayment({ bookingId: payment.booking?._id, reason: 'Admin initiated refund' })
@@ -1527,6 +1558,14 @@ function PaymentsTab() {
 
   return (
     <div>
+      {refundTarget && (
+        <ConfirmModal
+          message={`Issue refund for booking #${refundTarget.booking?.bookingNumber || ''}? This cannot be undone.`}
+          confirmLabel="Issue refund"
+          onConfirm={() => handleRefund(refundTarget)}
+          onCancel={() => setRefundTarget(null)}
+        />
+      )}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
           { label: 'Total Transactions', value: total, color: 'text-gray-900' },
@@ -1570,7 +1609,7 @@ function PaymentsTab() {
                   <td className="px-4 py-3">
                     {p.status === 'succeeded' && (
                       <button
-                        onClick={() => handleRefund(p)}
+                        onClick={() => setRefundTarget(p)}
                         disabled={refunding === p._id}
                         className="text-xs font-semibold text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
                       >

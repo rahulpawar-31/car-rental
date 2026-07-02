@@ -1,13 +1,14 @@
 import Location from "../model/location.model.js";
 import Car from "../model/car.model.js";
 import { AppError } from "../middleware/errorHandler.js";
+import { escapeRegex } from "../utils/regex.utils.js";
 
 export const getLocations = async (req, res) => {
   const { city, search, active = "true" } = req.query;
 
   const query = {};
   if (active === "true") query.isActive = true;
-  if (city) query.city = new RegExp(city, "i");
+  if (city) query.city = new RegExp(escapeRegex(city), "i");
   if (search) query.$text = { $search: search };
 
   const locations = await Location.find(query).sort({ city: 1, name: 1 }).lean();

@@ -92,6 +92,7 @@ export default function Booking() {
   })()
 
   const validate = () => {
+    if (!car?.isAvailable) { toast.error('This car is currently unavailable'); return false }
     if (!pickupDate) { toast.error('Select a pickup date'); return false }
     if (rentalType === 'day') {
       if (!dropDate) { toast.error('Select a drop-off date'); return false }
@@ -230,26 +231,26 @@ export default function Booking() {
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Full Name</label>
+                  <label htmlFor="booking-name" className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Full Name</label>
                   <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                     <User className="w-4 h-4 text-gray-400 shrink-0" />
-                    <input type="text" required value={name} onChange={e => setName(e.target.value)}
+                    <input id="booking-name" type="text" required value={name} onChange={e => setName(e.target.value)}
                       placeholder="John Doe" className="flex-1 text-sm outline-none text-gray-800 bg-transparent" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Email Address</label>
+                  <label htmlFor="booking-email" className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Email Address</label>
                   <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                     <Mail className="w-4 h-4 text-gray-400 shrink-0" />
-                    <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                    <input id="booking-email" type="email" required value={email} onChange={e => setEmail(e.target.value)}
                       placeholder="john@example.com" className="flex-1 text-sm outline-none text-gray-800 bg-transparent" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Phone Number</label>
+                  <label htmlFor="booking-phone" className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Phone Number</label>
                   <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                     <Phone className="w-4 h-4 text-gray-400 shrink-0" />
-                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                    <input id="booking-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)}
                       placeholder="+91 98765 43210" className="flex-1 text-sm outline-none text-gray-800 bg-transparent" />
                   </div>
                 </div>
@@ -273,19 +274,19 @@ export default function Booking() {
                     <div className="space-y-3">
                       <p className="text-xs font-bold text-teal-600 uppercase tracking-wider">Pickup</p>
                       <div>
-                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Date</label>
+                        <label htmlFor="booking-day-pickup-date" className="text-xs font-medium text-gray-500 block mb-1.5">Date</label>
                         <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                           <Calendar className="w-4 h-4 text-teal-500 shrink-0" />
-                          <input type="date" required min={today} value={pickupDate}
+                          <input id="booking-day-pickup-date" type="date" required min={today} value={pickupDate}
                             onChange={e => { setPickupDate(e.target.value); resetCoupon() }}
                             className="flex-1 text-sm outline-none text-gray-800 bg-transparent" />
                         </div>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Time</label>
+                        <label htmlFor="booking-day-pickup-time" className="text-xs font-medium text-gray-500 block mb-1.5">Time</label>
                         <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                           <Clock className="w-4 h-4 text-teal-500 shrink-0" />
-                          <select value={pickupTime} onChange={e => setPickupTime(e.target.value)}
+                          <select id="booking-day-pickup-time" value={pickupTime} onChange={e => setPickupTime(e.target.value)}
                             className="flex-1 text-sm outline-none text-gray-800 bg-transparent">
                             {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
@@ -295,19 +296,19 @@ export default function Booking() {
                     <div className="space-y-3">
                       <p className="text-xs font-bold text-teal-600 uppercase tracking-wider">Drop Off</p>
                       <div>
-                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Date</label>
+                        <label htmlFor="booking-day-drop-date" className="text-xs font-medium text-gray-500 block mb-1.5">Date</label>
                         <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                           <Calendar className="w-4 h-4 text-teal-500 shrink-0" />
-                          <input type="date" required min={pickupDate || today} value={dropDate}
+                          <input id="booking-day-drop-date" type="date" required min={pickupDate || today} value={dropDate}
                             onChange={e => { setDropDate(e.target.value); resetCoupon() }}
                             className="flex-1 text-sm outline-none text-gray-800 bg-transparent" />
                         </div>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Time</label>
+                        <label htmlFor="booking-day-drop-time" className="text-xs font-medium text-gray-500 block mb-1.5">Time</label>
                         <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                           <Clock className="w-4 h-4 text-teal-500 shrink-0" />
-                          <select value={dropTime} onChange={e => setDropTime(e.target.value)}
+                          <select id="booking-day-drop-time" value={dropTime} onChange={e => setDropTime(e.target.value)}
                             className="flex-1 text-sm outline-none text-gray-800 bg-transparent">
                             {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
@@ -330,19 +331,19 @@ export default function Booking() {
                     <div className="space-y-3">
                       <p className="text-xs font-bold text-teal-600 uppercase tracking-wider">Pickup</p>
                       <div>
-                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Date</label>
+                        <label htmlFor="booking-hour-pickup-date" className="text-xs font-medium text-gray-500 block mb-1.5">Date</label>
                         <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                           <Calendar className="w-4 h-4 text-teal-500 shrink-0" />
-                          <input type="date" required min={today} value={pickupDate}
+                          <input id="booking-hour-pickup-date" type="date" required min={today} value={pickupDate}
                             onChange={e => { setPickupDate(e.target.value); resetCoupon() }}
                             className="flex-1 text-sm outline-none text-gray-800 bg-transparent" />
                         </div>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Time</label>
+                        <label htmlFor="booking-hour-pickup-time" className="text-xs font-medium text-gray-500 block mb-1.5">Time</label>
                         <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                           <Clock className="w-4 h-4 text-teal-500 shrink-0" />
-                          <select value={pickupTime} onChange={e => setPickupTime(e.target.value)}
+                          <select id="booking-hour-pickup-time" value={pickupTime} onChange={e => setPickupTime(e.target.value)}
                             className="flex-1 text-sm outline-none text-gray-800 bg-transparent">
                             {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
@@ -388,19 +389,19 @@ export default function Booking() {
                       <Plane className="w-3.5 h-3.5" /> Pickup Date &amp; Time
                     </p>
                     <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1.5">Date</label>
+                      <label htmlFor="booking-airport-pickup-date" className="text-xs font-medium text-gray-500 block mb-1.5">Date</label>
                       <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                         <Calendar className="w-4 h-4 text-teal-500 shrink-0" />
-                        <input type="date" required min={today} value={pickupDate}
+                        <input id="booking-airport-pickup-date" type="date" required min={today} value={pickupDate}
                           onChange={e => { setPickupDate(e.target.value); resetCoupon() }}
                           className="flex-1 text-sm outline-none text-gray-800 bg-transparent" />
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1.5">Time</label>
+                      <label htmlFor="booking-airport-pickup-time" className="text-xs font-medium text-gray-500 block mb-1.5">Time</label>
                       <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                         <Clock className="w-4 h-4 text-teal-500 shrink-0" />
-                        <select value={pickupTime} onChange={e => setPickupTime(e.target.value)}
+                        <select id="booking-airport-pickup-time" value={pickupTime} onChange={e => setPickupTime(e.target.value)}
                           className="flex-1 text-sm outline-none text-gray-800 bg-transparent">
                           {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -425,11 +426,12 @@ export default function Booking() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {/* Pickup — shows text input when a drop-off branch is chosen */}
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Pickup Location</label>
+                  <label htmlFor="booking-pickup-location" className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Pickup Location</label>
                   <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                     <MapPin className="w-4 h-4 text-teal-500 shrink-0" />
                     {dropLocation ? (
                       <input
+                        id="booking-pickup-location"
                         type="text"
                         value={customPickupAddr}
                         onChange={e => setCustomPickupAddr(e.target.value)}
@@ -437,7 +439,7 @@ export default function Booking() {
                         className="flex-1 text-sm outline-none text-gray-800 bg-transparent placeholder-gray-400"
                       />
                     ) : (
-                      <select value={pickupLocation} onChange={e => setPickupLocation(e.target.value)}
+                      <select id="booking-pickup-location" value={pickupLocation} onChange={e => setPickupLocation(e.target.value)}
                         className="flex-1 text-sm outline-none text-gray-800 bg-transparent">
                         <option value="">— Select branch —</option>
                         {locations.filter(l => l.isPickupAvailable !== false).map(l => (
@@ -450,11 +452,12 @@ export default function Booking() {
 
                 {/* Drop-off — shows text input when a pickup branch is chosen */}
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Drop-off Location</label>
+                  <label htmlFor="booking-drop-location" className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Drop-off Location</label>
                   <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-teal-400 transition-colors">
                     <MapPin className="w-4 h-4 text-teal-500 shrink-0" />
                     {pickupLocation ? (
                       <input
+                        id="booking-drop-location"
                         type="text"
                         value={customDropAddr}
                         onChange={e => setCustomDropAddr(e.target.value)}
@@ -462,7 +465,7 @@ export default function Booking() {
                         className="flex-1 text-sm outline-none text-gray-800 bg-transparent placeholder-gray-400"
                       />
                     ) : (
-                      <select value={dropLocation} onChange={e => setDropLocation(e.target.value)}
+                      <select id="booking-drop-location" value={dropLocation} onChange={e => setDropLocation(e.target.value)}
                         className="flex-1 text-sm outline-none text-gray-800 bg-transparent">
                         <option value="">— Same as pickup —</option>
                         {locations.filter(l => l.isDropAvailable !== false).map(l => (
@@ -504,14 +507,17 @@ export default function Booking() {
               </div>
             </div>
 
+            {!car?.isAvailable && (
+              <p className="text-sm text-red-600 font-medium text-center mb-3">This car is currently unavailable for booking.</p>
+            )}
             <div className="space-y-3">
               {!isRequestMode && (
-                <button type="submit" disabled={submitting || !isReady}
+                <button type="submit" disabled={submitting || !isReady || !car?.isAvailable}
                   className="w-full bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-colors text-base uppercase tracking-wide shadow-lg shadow-teal-500/25">
                   {submitting ? 'Processing…' : 'Book Instantly'}
                 </button>
               )}
-              <button type="button" onClick={handleRequestSubmit} disabled={submitting || !isReady}
+              <button type="button" onClick={handleRequestSubmit} disabled={submitting || !isReady || !car?.isAvailable}
                 className={`w-full font-bold py-4 rounded-2xl transition-colors text-base uppercase tracking-wide disabled:opacity-50 ${
                   isRequestMode
                     ? 'bg-teal-500 hover:bg-teal-600 text-white shadow-lg shadow-teal-500/25'

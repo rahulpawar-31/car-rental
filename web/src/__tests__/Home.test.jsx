@@ -21,18 +21,10 @@ function renderHome() {
 }
 
 describe('Home page', () => {
-  test('does not render any "Read More" links in the articles section', async () => {
+  test('renders a "Read More" link for each article', async () => {
     renderHome()
     await waitFor(() => {
-      expect(screen.queryByText(/read more/i)).toBeNull()
-    })
-  })
-
-  test('renders "Coming Soon" placeholders instead of Read More links', async () => {
-    renderHome()
-    await waitFor(() => {
-      const comingSoon = screen.getAllByText(/coming soon/i)
-      expect(comingSoon.length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/read more/i).length).toBe(3)
     })
   })
 
@@ -40,7 +32,7 @@ describe('Home page', () => {
     renderHome()
     // Wait for the articles section to appear
     await waitFor(() => {
-      expect(screen.getAllByText(/coming soon/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/read more/i).length).toBeGreaterThan(0)
     })
     // Fire error on all article images
     const imgs = document.querySelectorAll('img[alt]')
