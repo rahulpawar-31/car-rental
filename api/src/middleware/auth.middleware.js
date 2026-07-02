@@ -14,6 +14,9 @@ export const protect = async (req, res, next) => {
   if (!token) throw new AppError("Authentication required. Please log in.", 401);
 
   const decoded = verifyAccessToken(token);
+  // Password-reset tokens are single-purpose (POST /auth/reset-password only) — reject
+  // them here so a leaked reset token can't be replayed as a general bearer token.
+  if (decoded.role === "reset") throw new AppError("Invalid or expired token", 401);
 
   const user = await User.findById(decoded.id).select("+passwordChangedAt");
   if (!user) throw new AppError("User no longer exists.", 401);
@@ -45,8 +48,10 @@ export const optionalAuth = async (req, res, next) => {
     }
     if (token) {
       const decoded = verifyAccessToken(token);
-      const user = await User.findById(decoded.id);
-      if (user && user.isActive) req.user = user;
+      if (decoded.role !== "reset") {
+        const user = await User.findById(decoded.id);
+        if (user && user.isActive) req.user = user;
+      }
     }
   } catch {
     // ignore auth errors for optional auth

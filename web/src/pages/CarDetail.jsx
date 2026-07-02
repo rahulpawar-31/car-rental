@@ -181,27 +181,34 @@ export default function CarDetail() {
   }, [])
 
   useEffect(() => {
+    // Rapidly switching cars (e.g. via "Similar Cars") can let an older, slower
+    // response resolve after a newer one — `ignore` drops any result that's no
+    // longer for the currently-mounted `id`.
+    let ignore = false
     setLoading(true)
     Promise.all([getCarById(id), getCarReviews(id)])
       .then(([carRes, reviewRes]) => {
+        if (ignore) return
         const loaded = carRes.data.data.car
         setCar(loaded)
         setReviews(reviewRes.data.data.reviews || [])
         if (user?.savedCars) setSaved(user.savedCars.some(s => (s._id || s) === id))
         getCars({ type: loaded.type, limit: 4 })
-          .then(res => setSimilar((res.data.data.cars || []).filter(c => c._id !== id).slice(0, 3)))
+          .then(res => { if (!ignore) setSimilar((res.data.data.cars || []).filter(c => c._id !== id).slice(0, 3)) })
           .catch(() => {})
       })
-      .catch(() => navigate('/cars'))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!ignore) navigate('/cars') })
+      .finally(() => { if (!ignore) setLoading(false) })
 
     getCarBookedDates(id)
-      .then(res => setBookedRanges(res.data.data.bookedRanges || []))
+      .then(res => { if (!ignore) setBookedRanges(res.data.data.bookedRanges || []) })
       .catch(() => {})
 
     getLocations()
-      .then(res => setLocations(res.data.data.locations || []))
+      .then(res => { if (!ignore) setLocations(res.data.data.locations || []) })
       .catch(() => {})
+
+    return () => { ignore = true }
   }, [id, navigate, user])
 
   // Pre-fill form from user profile
@@ -562,8 +569,9 @@ export default function CarDetail() {
 
                 {/* Full Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                  <label htmlFor="cardetail-name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                   <input
+                    id="cardetail-name"
                     type="text"
                     value={formName}
                     onChange={e => setFormName(e.target.value)}
@@ -574,8 +582,9 @@ export default function CarDetail() {
 
                 {/* Email */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                  <label htmlFor="cardetail-email" className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
                   <input
+                    id="cardetail-email"
                     type="email"
                     value={formEmail}
                     onChange={e => setFormEmail(e.target.value)}
@@ -586,8 +595,9 @@ export default function CarDetail() {
 
                 {/* Phone */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                  <label htmlFor="cardetail-phone" className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
                   <input
+                    id="cardetail-phone"
                     type="tel"
                     value={formPhone}
                     onChange={e => setFormPhone(e.target.value)}
@@ -600,8 +610,8 @@ export default function CarDetail() {
                 {locations.length > 0 && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Pickup Branch</label>
-                      <select value={formPickupLocation} onChange={e => setFormPickupLocation(e.target.value)}
+                      <label htmlFor="cardetail-pickup-branch" className="block text-sm font-medium text-gray-700 mb-1">Pickup Branch</label>
+                      <select id="cardetail-pickup-branch" value={formPickupLocation} onChange={e => setFormPickupLocation(e.target.value)}
                         className="w-full border border-gray-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 bg-white">
                         <option value="">— Select branch —</option>
                         {locations.filter(l => l.isPickupAvailable !== false).map(l => (
@@ -610,8 +620,8 @@ export default function CarDetail() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Drop-off Branch</label>
-                      <select value={formDropLocation} onChange={e => setFormDropLocation(e.target.value)}
+                      <label htmlFor="cardetail-drop-branch" className="block text-sm font-medium text-gray-700 mb-1">Drop-off Branch</label>
+                      <select id="cardetail-drop-branch" value={formDropLocation} onChange={e => setFormDropLocation(e.target.value)}
                         className="w-full border border-gray-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 bg-white">
                         <option value="">— Same as pickup —</option>
                         {locations.filter(l => l.isDropAvailable !== false).map(l => (
@@ -624,8 +634,9 @@ export default function CarDetail() {
 
                 {/* Pickup Address */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Pickup Address</label>
+                  <label htmlFor="cardetail-pickup-address" className="block text-sm font-medium text-gray-700 mb-1">Pickup Address</label>
                   <input
+                    id="cardetail-pickup-address"
                     type="text"
                     value={formPickupAddress}
                     onChange={e => setFormPickupAddress(e.target.value)}
@@ -636,8 +647,9 @@ export default function CarDetail() {
 
                 {/* Pickup Date */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Pickup Date</label>
+                  <label htmlFor="cardetail-pickup-date" className="block text-sm font-medium text-gray-700 mb-1">Pickup Date</label>
                   <input
+                    id="cardetail-pickup-date"
                     type="date"
                     value={formPickupDate}
                     min={today}
@@ -648,8 +660,9 @@ export default function CarDetail() {
 
                 {/* Pickup Time */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Pickup Time</label>
+                  <label htmlFor="cardetail-pickup-time" className="block text-sm font-medium text-gray-700 mb-1">Pickup Time</label>
                   <select
+                    id="cardetail-pickup-time"
                     value={formPickupTime}
                     onChange={e => setFormPickupTime(e.target.value)}
                     className="w-full border border-gray-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 bg-white"
@@ -685,8 +698,9 @@ export default function CarDetail() {
                 {/* Per Day + Airport: Drop Off Address */}
                 {(rentalType === 'day' || rentalType === 'airport') && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Drop Off Address</label>
+                    <label htmlFor="cardetail-drop-address" className="block text-sm font-medium text-gray-700 mb-1">Drop Off Address</label>
                     <input
+                      id="cardetail-drop-address"
                       type="text"
                       value={formDropAddress}
                       onChange={e => setFormDropAddress(e.target.value)}
@@ -700,8 +714,9 @@ export default function CarDetail() {
                 {rentalType === 'day' && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Drop Off Date</label>
+                      <label htmlFor="cardetail-drop-date" className="block text-sm font-medium text-gray-700 mb-1">Drop Off Date</label>
                       <input
+                        id="cardetail-drop-date"
                         type="date"
                         value={formDropDate}
                         min={formPickupDate || today}
@@ -710,8 +725,9 @@ export default function CarDetail() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Drop Off Time</label>
+                      <label htmlFor="cardetail-drop-time" className="block text-sm font-medium text-gray-700 mb-1">Drop Off Time</label>
                       <select
+                        id="cardetail-drop-time"
                         value={formDropTime}
                         onChange={e => setFormDropTime(e.target.value)}
                         className="w-full border border-gray-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 bg-white"

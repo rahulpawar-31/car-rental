@@ -123,10 +123,11 @@ export default function Contact() {
                   <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                        <label htmlFor="contact-name" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                           Your Name <span className="text-red-400">*</span>
                         </label>
                         <input
+                          id="contact-name"
                           type="text"
                           name="name"
                           value={form.name}
@@ -139,10 +140,11 @@ export default function Contact() {
                         {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                        <label htmlFor="contact-email" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                           Email Address <span className="text-red-400">*</span>
                         </label>
                         <input
+                          id="contact-email"
                           type="email"
                           name="email"
                           value={form.email}
@@ -157,10 +159,11 @@ export default function Contact() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      <label htmlFor="contact-subject" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                         Subject <span className="text-red-400">*</span>
                       </label>
                       <select
+                        id="contact-subject"
                         name="subject"
                         value={form.subject}
                         onChange={handleChange}
@@ -180,10 +183,11 @@ export default function Contact() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      <label htmlFor="contact-message" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                         Message <span className="text-red-400">*</span>
                       </label>
                       <textarea
+                        id="contact-message"
                         name="message"
                         value={form.message}
                         onChange={handleChange}

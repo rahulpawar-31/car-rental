@@ -91,8 +91,9 @@ export default function Register() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">Full Name</label>
+                <label htmlFor="register-name" className="text-sm font-medium text-gray-700 block mb-1.5">Full Name</label>
                 <input
+                  id="register-name"
                   type="text"
                   required
                   value={form.name}
@@ -103,8 +104,9 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">Email</label>
+                <label htmlFor="register-email" className="text-sm font-medium text-gray-700 block mb-1.5">Email</label>
                 <input
+                  id="register-email"
                   type="email"
                   required
                   value={form.email}
@@ -115,8 +117,9 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">Phone</label>
+                <label htmlFor="register-phone" className="text-sm font-medium text-gray-700 block mb-1.5">Phone</label>
                 <input
+                  id="register-phone"
                   type="tel"
                   value={form.phone}
                   onChange={set('phone')}
@@ -126,9 +129,10 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">Password</label>
+                <label htmlFor="register-password" className="text-sm font-medium text-gray-700 block mb-1.5">Password</label>
                 <div className="relative">
                   <input
+                    id="register-password"
                     type={showPw ? 'text' : 'password'}
                     required
                     value={form.password}

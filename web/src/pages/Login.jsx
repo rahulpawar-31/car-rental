@@ -101,8 +101,9 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">Email</label>
+                <label htmlFor="login-email" className="text-sm font-medium text-gray-700 block mb-1.5">Email</label>
                 <input
+                  id="login-email"
                   type="email"
                   required
                   autoComplete="email"
@@ -115,11 +116,12 @@ export default function Login() {
 
               <div>
                 <div className="flex justify-between mb-1.5">
-                  <label className="text-sm font-medium text-gray-700">Password</label>
+                  <label htmlFor="login-password" className="text-sm font-medium text-gray-700">Password</label>
                   <Link to="/forgot-password" className="text-xs text-teal-600 hover:underline">Forgot password?</Link>
                 </div>
                 <div className="relative">
                   <input
+                    id="login-password"
                     type={showPw ? 'text' : 'password'}
                     required
                     autoComplete="current-password"

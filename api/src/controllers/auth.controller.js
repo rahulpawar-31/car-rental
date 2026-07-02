@@ -3,6 +3,7 @@ import { AppError } from "../middleware/errorHandler.js";
 import {
   generateAccessToken,
   generateRefreshToken,
+  generateResetToken,
   verifyRefreshToken,
   setTokenCookies,
   clearTokenCookies,
@@ -141,7 +142,7 @@ export const verifyOtp = async (req, res) => {
   user.otpExpiry = undefined;
   await user.save({ validateBeforeSave: false });
 
-  const resetToken = generateAccessToken(user._id, "reset");
+  const resetToken = generateResetToken(user._id);
   res.json({ success: true, message: "OTP verified", data: { resetToken } });
 };
 
@@ -155,12 +156,14 @@ export const resetPassword = async (req, res) => {
   } catch {
     throw new AppError("Invalid or expired reset token", 400);
   }
+  if (decoded.role !== "reset") throw new AppError("Invalid reset token", 400);
 
   const user = await User.findById(decoded.id);
   if (!user) throw new AppError("User not found", 404);
 
   user.password = password;
   user.passwordChangedAt = new Date();
+  user.refreshToken = undefined;
   await user.save();
 
   clearTokenCookies(res);

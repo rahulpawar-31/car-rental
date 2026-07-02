@@ -3,18 +3,15 @@ import Car from "../model/car.model.js";
 import Booking from "../model/booking.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { cloudinary } from "../config/cloudinary.js";
+import { escapeRegex } from "../utils/regex.utils.js";
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'active'];
 
 const ALLOWED_CAR_FIELDS = new Set([
-  'brand', 'model', 'year', 'type', 'color', 'transmission', 'fuelType',
+  'name', 'brand', 'model', 'year', 'type', 'color', 'transmission', 'fuelType',
   'seats', 'pricePerDay', 'location', 'isFeatured', 'isAvailable', 'isActive',
   'description', 'features', 'securityDeposit',
 ]);
-
-function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 export const getCars = async (req, res) => {
   const {

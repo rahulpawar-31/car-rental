@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getBookingById } from '../api/bookings'
 import { cancelBooking } from '../api/bookings'
 import Spinner from '../components/ui/Spinner'
+import ConfirmModal from '../components/ui/ConfirmModal'
 import { toast } from 'sonner'
 import {
   ChevronLeft, Calendar, MapPin, Car, CreditCard,
@@ -36,6 +37,7 @@ export default function BookingDetail() {
   const [booking, setBooking] = useState(null)
   const [loading, setLoading] = useState(true)
   const [cancelling, setCancelling] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   useEffect(() => {
     getBookingById(id)
@@ -45,7 +47,7 @@ export default function BookingDetail() {
   }, [id, navigate])
 
   const handleCancel = async () => {
-    if (!confirm('Are you sure you want to cancel this booking?')) return
+    setShowCancelConfirm(false)
     setCancelling(true)
     try {
       const { data } = await cancelBooking(id)
@@ -68,6 +70,14 @@ export default function BookingDetail() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {showCancelConfirm && (
+        <ConfirmModal
+          message="Cancel this booking? This cannot be undone."
+          confirmLabel="Yes, cancel"
+          onConfirm={handleCancel}
+          onCancel={() => setShowCancelConfirm(false)}
+        />
+      )}
       <button onClick={() => navigate('/dashboard')} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-6">
         <ChevronLeft className="w-4 h-4" /> Back to Dashboard
       </button>
@@ -227,7 +237,7 @@ export default function BookingDetail() {
         )}
         {canCancel && (
           <button
-            onClick={handleCancel}
+            onClick={() => setShowCancelConfirm(true)}
             disabled={cancelling}
             className="border border-red-200 text-red-600 text-sm font-medium px-6 py-2.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-60"
           >

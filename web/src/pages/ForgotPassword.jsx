@@ -155,8 +155,9 @@ export default function ForgotPassword() {
             {step === 1 && (
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1.5">Email address</label>
+                  <label htmlFor="forgot-password-email" className="text-sm font-medium text-gray-700 block mb-1.5">Email address</label>
                   <input
+                    id="forgot-password-email"
                     type="email"
                     required
                     value={email}
@@ -178,8 +179,9 @@ export default function ForgotPassword() {
             {step === 2 && (
               <form onSubmit={handleVerifyOtp} className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1.5">Enter OTP</label>
+                  <label htmlFor="forgot-password-otp" className="text-sm font-medium text-gray-700 block mb-1.5">Enter OTP</label>
                   <input
+                    id="forgot-password-otp"
                     type="text"
                     required
                     maxLength={6}
@@ -205,8 +207,9 @@ export default function ForgotPassword() {
             {step === 3 && (
               <form onSubmit={handleReset} className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1.5">New Password</label>
+                  <label htmlFor="forgot-password-new-password" className="text-sm font-medium text-gray-700 block mb-1.5">New Password</label>
                   <input
+                    id="forgot-password-new-password"
                     type="password"
                     required
                     value={password}
