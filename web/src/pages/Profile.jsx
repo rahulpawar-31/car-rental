@@ -95,11 +95,6 @@ export default function Profile() {
     }
   }
 
-  useEffect(() => {
-    if (tab === 'reviews' && !hasLoadedReviews && !reviewsLoading) loadReviews()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab])
-
   const loadReviews = async () => {
     setReviewsLoading(true)
     try {
@@ -109,6 +104,11 @@ export default function Profile() {
     } catch { toast.error('Failed to load reviews') }
     finally { setReviewsLoading(false) }
   }
+
+  useEffect(() => {
+    if (tab === 'reviews' && !hasLoadedReviews && !reviewsLoading) loadReviews()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
 
   const handleEditReview = async (id) => {
     try {
