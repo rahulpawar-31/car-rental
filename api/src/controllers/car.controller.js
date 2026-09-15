@@ -4,8 +4,7 @@ import Booking from "../model/booking.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { cloudinary } from "../config/cloudinary.js";
 import { escapeRegex } from "../utils/regex.utils.js";
-
-const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'active'];
+import { ACTIVE_BOOKING_STATUSES, bookingConflictQuery } from "../services/carAvailability.js";
 
 const ALLOWED_CAR_FIELDS = new Set([
   'name', 'brand', 'model', 'year', 'type', 'color', 'transmission', 'fuelType',
@@ -61,12 +60,7 @@ export const getCars = async (req, res) => {
     const drop = new Date(dropDate);
     if (isNaN(pickup.getTime()) || isNaN(drop.getTime())) throw new AppError('Invalid date format', 400);
     if (pickup >= drop) throw new AppError('Pickup date must be before drop date', 400);
-    const bookedBookings = await Booking.find({
-      status: { $in: ACTIVE_BOOKING_STATUSES },
-      $or: [
-        { pickupDate: { $lte: drop }, dropDate: { $gte: pickup } },
-      ],
-    }).select("car");
+    const bookedBookings = await Booking.find(bookingConflictQuery({ pickup, drop })).select("car");
     bookedCarIds = bookedBookings.map((b) => b.car.toString());
     if (bookedCarIds.length > 0) {
       query._id = { $nin: bookedCarIds };
@@ -161,12 +155,7 @@ export const checkCarAvailability = async (req, res) => {
   const car = await Car.findById(id);
   if (!car || !car.isActive) throw new AppError("Car not found", 404);
 
-  const conflict = await Booking.findOne({
-    car: id,
-    status: { $in: ACTIVE_BOOKING_STATUSES },
-    pickupDate: { $lte: drop },
-    dropDate: { $gte: pickup },
-  });
+  const conflict = await Booking.findOne(bookingConflictQuery({ carId: id, pickup, drop }));
 
   const available = !conflict && car.isAvailable;
 
