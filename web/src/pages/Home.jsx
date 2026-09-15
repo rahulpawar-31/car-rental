@@ -98,7 +98,7 @@ const TYPE_EMOJI = {
 }
 
 export default function Home() {
-  const [featuredCars, setFeaturedCars] = useState([])
+  const [, setFeaturedCars] = useState([]) // fetched below but never rendered — see #4
   const [brandCards, setBrandCards] = useState([])
   const [typeCards, setTypeCards] = useState([])
   const [brands, setBrands] = useState([])
