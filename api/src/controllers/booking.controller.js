@@ -5,6 +5,7 @@ import Payment from "../model/payment.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { sendBookingConfirmationEmail } from "../utils/email.utils.js";
 import { computeBookingQuote } from "../services/booking.quote.js";
+import { bookingConflictQuery } from "../services/carAvailability.js";
 
 export const createBooking = async (req, res) => {
   const { carId, pickupLocationId, dropLocationId, pickupDate, dropDate, couponCode, driverDetails, notes, rentalType, totalHours } = req.body;
@@ -15,12 +16,7 @@ export const createBooking = async (req, res) => {
   if (pickup >= drop) throw new AppError("Drop date must be after pickup date", 400);
   if (pickup < new Date()) throw new AppError("Pickup date cannot be in the past", 400);
 
-  const conflict = await Booking.findOne({
-    car: carId,
-    status: { $in: ["pending", "confirmed", "active"] },
-    pickupDate: { $lte: drop },
-    dropDate: { $gte: pickup },
-  });
+  const conflict = await Booking.findOne(bookingConflictQuery({ carId, pickup, drop }));
   if (conflict) throw new AppError("Car is not available for the selected dates", 409);
 
   const car = await Car.findById(carId);
@@ -111,13 +107,9 @@ export const createBooking = async (req, res) => {
   // Fix #10: the availability check above (line 19-24) and this create() aren't atomic,
   // so two concurrent requests for the same car/dates can both pass it. Re-verify now that
   // both rows exist; whichever booking has the smaller _id (created first) wins.
-  const earlierConflict = await Booking.findOne({
-    _id: { $lt: booking._id },
-    car: carId,
-    status: { $in: ["pending", "confirmed", "active"] },
-    pickupDate: { $lte: drop },
-    dropDate: { $gte: pickup },
-  });
+  const earlierConflict = await Booking.findOne(
+    bookingConflictQuery({ carId, pickup, drop, tieBreakBeforeId: booking._id })
+  );
   if (earlierConflict) {
     await Booking.deleteOne({ _id: booking._id });
     if (appliedCoupon) {
@@ -231,13 +223,9 @@ export const rescheduleBooking = async (req, res) => {
     throw new AppError("Only pending or confirmed bookings can be rescheduled", 400);
   }
 
-  const conflict = await Booking.findOne({
-    _id: { $ne: booking._id },
-    car: booking.car,
-    status: { $in: ["pending", "confirmed", "active"] },
-    pickupDate: { $lte: drop },
-    dropDate: { $gte: pickup },
-  });
+  const conflict = await Booking.findOne(
+    bookingConflictQuery({ carId: booking.car, pickup, drop, excludeBookingId: booking._id })
+  );
   if (conflict) throw new AppError("Car is not available for the selected dates", 409);
 
   const car = await Car.findById(booking.car);
@@ -289,13 +277,9 @@ export const rescheduleBooking = async (req, res) => {
 
   // Re-verify: the conflict check above and this save() aren't atomic, so a concurrent
   // booking/reschedule for the same car could have landed on these dates in between.
-  const overlapping = await Booking.findOne({
-    _id: { $ne: booking._id },
-    car: booking.car,
-    status: { $in: ["pending", "confirmed", "active"] },
-    pickupDate: { $lte: drop },
-    dropDate: { $gte: pickup },
-  });
+  const overlapping = await Booking.findOne(
+    bookingConflictQuery({ carId: booking.car, pickup, drop, excludeBookingId: booking._id })
+  );
   if (overlapping) {
     Object.assign(booking, original);
     await booking.save();
