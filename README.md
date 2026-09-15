@@ -201,13 +201,23 @@ Base path: `/api/v1`
 Browse Cars → Car Detail → Check Availability
   → Booking form (dates, pickup/drop location, coupon)
     → POST /bookings → booking created with price breakdown
-      (base rate × days + 18% GST + security deposit)
+      (base rate − coupon discount + 18% GST + security deposit)
         → Payment page
           → POST /payments/create-intent → Razorpay order ID
             → Razorpay checkout (client-side)
               → POST /payments/confirm → signature verified → booking confirmed
                 → Confirmation email sent via Resend
 ```
+
+The base rate depends on rental type, chosen on the booking form:
+
+| Rental type | Base rate |
+|---|---|
+| Daily (`day`) | `car.pricePerDay × totalDays` (minimum 1 day) |
+| Hourly (`hour`) | `car.pricePerHour × totalHours` (falls back to `pricePerDay / 8` if a car has no hourly rate set) |
+| Airport transfer (`airport`) | flat `car.pricePerDay × 0.4`, capped at 24 hours |
+
+A coupon discount (percentage or flat, both capped so the discount can never exceed the base rate) is applied before GST. All pricing math lives in one place — `api/src/services/booking.quote.js` — shared by booking creation, rescheduling, and the coupon-preview endpoint, so a preview always matches what you're actually charged.
 
 ## Image Upload Flow
 
