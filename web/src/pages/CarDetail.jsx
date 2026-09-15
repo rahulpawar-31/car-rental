@@ -11,6 +11,7 @@ import useAuthStore from '../store/authStore'
 import Spinner from '../components/ui/Spinner'
 import { toast } from 'sonner'
 import { TIME_SLOTS, HOUR_OPTIONS } from '../constants/booking'
+import { deriveRentalRates } from '../lib/pricing'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAY_NAMES = ['Su','Mo','Tu','We','Th','Fr','Sa']
@@ -313,10 +314,11 @@ export default function CarDetail() {
   )
   const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
 
+  const rates = deriveRentalRates(car)
   const RENTAL_TYPES = [
-    { key: 'day',     label: 'Per Day',          price: car.pricePerDay },
-    { key: 'hour',    label: 'Per Hour',          price: Math.round(car.pricePerDay / 8) },
-    { key: 'airport', label: 'Airport Transfer',  price: Math.round(car.pricePerDay * 0.4) },
+    { key: 'day',     label: 'Per Day',          price: rates.pricePerDay },
+    { key: 'hour',    label: 'Per Hour',          price: rates.pricePerHour },
+    { key: 'airport', label: 'Airport Transfer',  price: rates.airportPrice },
   ]
   const activeType = RENTAL_TYPES.find(t => t.key === rentalType)
   const primaryImg = car.images?.find(i => i.isPrimary) || car.images?.[0]

@@ -8,6 +8,7 @@ import useAuthStore from '../store/authStore'
 import Spinner from '../components/ui/Spinner'
 import { toast } from 'sonner'
 import { TIME_SLOTS, HOUR_OPTIONS } from '../constants/booking'
+import { deriveRentalRates, computeBaseAmount, computeTaxAndTotal } from '../lib/pricing'
 
 const RENTAL_LABELS = { day: 'Per Day', hour: 'Per Hour', airport: 'Airport Transfer' }
 
@@ -54,21 +55,15 @@ export default function Booking() {
   }, [carId, navigate])
 
   // Pricing per rental type
-  const pricePerDay  = car?.pricePerDay || 0
-  const pricePerHour = Math.round(pricePerDay / 8)
-  const airportPrice = Math.round(pricePerDay * 0.4)
+  const rates = deriveRentalRates(car)
+  const { pricePerDay, pricePerHour, airportPrice } = rates
 
   const days = (() => {
     if (rentalType !== 'day' || !pickupDate || !dropDate) return 0
     return Math.max(0, Math.ceil((new Date(dropDate) - new Date(pickupDate)) / 86400000))
   })()
 
-  const baseAmount = (() => {
-    if (rentalType === 'day')     return pricePerDay * days
-    if (rentalType === 'hour')    return pricePerHour * hours
-    if (rentalType === 'airport') return airportPrice
-    return 0
-  })()
+  const baseAmount = computeBaseAmount(rates, { rentalType, days, hours })
 
   const isReady = (() => {
     if (rentalType === 'day')     return days > 0
@@ -77,9 +72,8 @@ export default function Booking() {
     return false
   })()
 
-  const tax            = Math.round((baseAmount - discountAmount) * 0.18)
   const securityDeposit = car?.securityDeposit || 0
-  const total          = baseAmount - discountAmount + tax + securityDeposit
+  const { tax, total } = computeTaxAndTotal({ baseAmount, discountAmount, securityDeposit })
 
   // Compute a synthetic dropDate for the backend date-range check
   const effectiveDropDate = (() => {
