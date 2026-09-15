@@ -4,8 +4,7 @@ import Coupon from "../model/coupon.model.js";
 import Payment from "../model/payment.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { sendBookingConfirmationEmail } from "../utils/email.utils.js";
-
-const TAX_RATE = 0.18;
+import { computeBookingQuote } from "../services/booking.quote.js";
 
 export const createBooking = async (req, res) => {
   const { carId, pickupLocationId, dropLocationId, pickupDate, dropDate, couponCode, driverDetails, notes, rentalType, totalHours } = req.body;
@@ -27,36 +26,32 @@ export const createBooking = async (req, res) => {
   const car = await Car.findById(carId);
   if (!car || !car.isActive || !car.isAvailable) throw new AppError("Car not available", 404);
 
-  // Fix #7: price by rental type
-  const msPerDay = 24 * 60 * 60 * 1000;
+  // Fix #7: price by rental type. Request-shape validation stays here (not in
+  // computeBookingQuote) — it's about what the client sent, not the pricing math.
   const msPerHour = 60 * 60 * 1000;
   const durationHours = (drop - pickup) / msPerHour;
-  let totalDays, baseAmount;
   if (rentalType === "hour") {
     if (!(totalHours > 0)) throw new AppError("totalHours is required for hourly rentals", 400);
     // totalHours must match the actual pickup/drop span, since that's what blocks the car
     if (Math.abs(durationHours - totalHours) > 1) {
       throw new AppError("totalHours must match the selected pickup/drop time range", 400);
     }
-    const pricePerHour = Math.round(car.pricePerDay / 8);
-    baseAmount = pricePerHour * totalHours;
-    totalDays = 0;
   } else if (rentalType === "airport") {
     if (durationHours > 24) {
       throw new AppError("Airport transfer bookings can span at most 24 hours — use a daily rental for longer trips", 400);
     }
-    baseAmount = Math.round(car.pricePerDay * 0.4);
-    totalDays = 1;
-  } else {
-    totalDays = Math.max(1, Math.ceil((drop - pickup) / msPerDay));
-    baseAmount = totalDays * car.pricePerDay;
   }
 
-  let discountAmount = 0;
+  // baseAmount only, to gate the coupon's minBookingAmount before it's claimed.
+  const { baseAmount: baseAmountForCouponGate } = computeBookingQuote({
+    car, rentalType, pickupDate, dropDate, totalHours, coupon: null,
+  });
+
   let appliedCoupon = null;
+  let coupon = null;
 
   if (couponCode) {
-    const coupon = await Coupon.findOne({
+    coupon = await Coupon.findOne({
       code: couponCode.toUpperCase(),
       isActive: true,
       startDate: { $lte: new Date() },
@@ -64,7 +59,7 @@ export const createBooking = async (req, res) => {
     });
 
     if (!coupon) throw new AppError("Invalid or expired coupon code", 400);
-    if (baseAmount < coupon.minBookingAmount) {
+    if (baseAmountForCouponGate < coupon.minBookingAmount) {
       throw new AppError(`Minimum booking amount ₹${coupon.minBookingAmount} required`, 400);
     }
 
@@ -84,18 +79,12 @@ export const createBooking = async (req, res) => {
     );
     if (!claimed) throw new AppError("Coupon already used or limit reached", 400);
 
-    // Fix #8: cap flat coupon at baseAmount to prevent negative total
-    discountAmount =
-      coupon.type === "percentage"
-        ? Math.min(baseAmount * (coupon.value / 100), coupon.maxDiscountAmount || Infinity)
-        : Math.min(coupon.value, baseAmount);
-
     appliedCoupon = coupon._id;
   }
 
-  const taxableAmount = baseAmount - discountAmount;
-  const taxAmount = Math.round(taxableAmount * TAX_RATE);
-  const totalAmount = taxableAmount + taxAmount + car.securityDeposit;
+  const { totalDays, baseAmount, discountAmount, taxAmount, totalAmount } = computeBookingQuote({
+    car, rentalType, pickupDate, dropDate, totalHours, coupon,
+  });
 
   const booking = await Booking.create({
     user: req.user._id,
@@ -254,14 +243,24 @@ export const rescheduleBooking = async (req, res) => {
   const car = await Car.findById(booking.car);
   if (!car) throw new AppError("Car not found", 404);
 
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const totalDays = Math.max(1, Math.ceil((drop - pickup) / msPerDay));
-  const baseAmount = totalDays * car.pricePerDay;
-  // Fix #9: preserve original coupon discount when recalculating after reschedule
-  const discountAmount = booking.discountAmount || 0;
-  const taxableAmount = baseAmount - discountAmount;
-  const taxAmount = Math.round(taxableAmount * TAX_RATE);
-  const totalAmount = taxableAmount + taxAmount + car.securityDeposit;
+  // Fix #7 (reschedule side): price by the booking's own rentalType, not
+  // unconditionally as a daily rental — a rescheduled hourly or airport
+  // booking was silently repriced as a full daily rental before.
+  //
+  // Fix #9: preserve the original coupon discount rather than re-deriving it
+  // (a percentage coupon doesn't get rescaled against the new baseAmount).
+  // Expressed as a synthetic "fixed" coupon so it goes through the exact
+  // same baseAmount cap computeBookingQuote already applies everywhere else
+  // — the original bug this reschedule path had: a frozen discount bigger
+  // than a new, smaller baseAmount drove taxableAmount negative.
+  const { totalDays, baseAmount, discountAmount, taxAmount, totalAmount } = computeBookingQuote({
+    car,
+    rentalType: booking.rentalType,
+    pickupDate,
+    dropDate,
+    totalHours: booking.totalHours,
+    coupon: booking.discountAmount ? { type: "fixed", value: booking.discountAmount } : null,
+  });
 
   // Fix #10: snapshot originals in case the post-save conflict check below forces a rollback
   const original = {
@@ -269,6 +268,7 @@ export const rescheduleBooking = async (req, res) => {
     dropDate: booking.dropDate,
     totalDays: booking.totalDays,
     baseAmount: booking.baseAmount,
+    discountAmount: booking.discountAmount,
     taxAmount: booking.taxAmount,
     totalAmount: booking.totalAmount,
     paymentStatus: booking.paymentStatus,
@@ -278,6 +278,10 @@ export const rescheduleBooking = async (req, res) => {
   booking.dropDate = drop;
   booking.totalDays = totalDays;
   booking.baseAmount = baseAmount;
+  // discountAmount can shrink here (Fix #9's cap) even though it started
+  // from booking.discountAmount — save the capped value, not the original,
+  // so it stays consistent with the taxAmount/totalAmount derived from it.
+  booking.discountAmount = discountAmount;
   booking.taxAmount = taxAmount;
   booking.totalAmount = totalAmount;
   if (booking.paymentStatus !== "paid") booking.paymentStatus = "pending";
@@ -369,16 +373,22 @@ export const trackRental = async (req, res) => {
 };
 
 export const applyCoupon = async (req, res) => {
-  const { code, carId, pickupDate, dropDate } = req.body;
-
-  const pickup = new Date(pickupDate);
-  const drop = new Date(dropDate);
-  const totalDays = Math.max(1, Math.ceil((drop - pickup) / (24 * 60 * 60 * 1000)));
+  // rentalType/totalHours are optional so existing callers that don't send
+  // them yet keep previewing as a daily rental, same as before this fix —
+  // but accepting them here is what lets the preview match createBooking's
+  // actual price for hourly/airport bookings at all. (The frontend still
+  // needs a follow-up change to actually send them; that's out of scope for
+  // this backend module — see the "Extract a rental-pricing module" audit
+  // candidate for the client-side duplication.)
+  const { code, carId, pickupDate, dropDate, rentalType, totalHours } = req.body;
 
   const car = await Car.findById(carId);
   if (!car) throw new AppError("Car not found", 404);
 
-  const baseAmount = totalDays * car.pricePerDay;
+  // baseAmount only, to gate minBookingAmount/usage before we know it's valid to apply.
+  const { baseAmount } = computeBookingQuote({
+    car, rentalType: rentalType || "day", pickupDate, dropDate, totalHours, coupon: null,
+  });
 
   const coupon = await Coupon.findOne({
     code: code.toUpperCase(),
@@ -394,10 +404,14 @@ export const applyCoupon = async (req, res) => {
   const userUsage = coupon.usedBy.filter((id) => id.toString() === req.user._id.toString()).length;
   if (userUsage >= coupon.perUserLimit) throw new AppError("Coupon already used", 400);
 
-  const discountAmount =
-    coupon.type === "percentage"
-      ? Math.min(baseAmount * (coupon.value / 100), coupon.maxDiscountAmount || Infinity)
-      : coupon.value;
+  // Same computeBookingQuote call createBooking will make — this is the fix:
+  // the preview used to always price as a daily rental (ignoring rentalType
+  // entirely) and never capped a flat coupon at baseAmount, so it could show
+  // a different, sometimes impossible (negative-total) discount than what
+  // createBooking would actually charge.
+  const { discountAmount } = computeBookingQuote({
+    car, rentalType: rentalType || "day", pickupDate, dropDate, totalHours, coupon,
+  });
 
   res.json({
     success: true,
