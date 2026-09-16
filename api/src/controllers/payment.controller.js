@@ -1,15 +1,24 @@
 import Booking from "../model/booking.model.js";
 import Payment from "../model/payment.model.js";
 import { AppError } from "../middleware/errorHandler.js";
-import { createOrder, refundPaymentGateway, verifyPaymentSignature, verifyWebhookSignature } from "../services/razorpay.js";
+import {
+  createOrder,
+  refundPaymentGateway,
+  verifyPaymentSignature,
+  verifyWebhookSignature,
+} from "../services/razorpay.js";
 
 export const createPaymentIntent = async (req, res) => {
   const { bookingId } = req.body;
 
-  const booking = await Booking.findOne({ _id: bookingId, user: req.user._id }).populate("car", "name brand");
+  const booking = await Booking.findOne({ _id: bookingId, user: req.user._id }).populate(
+    "car",
+    "name brand"
+  );
   if (!booking) throw new AppError("Booking not found", 404);
   if (booking.paymentStatus === "paid") throw new AppError("Booking already paid", 400);
-  if (booking.status !== "pending") throw new AppError(`Booking is ${booking.status} and can no longer be paid for`, 400);
+  if (booking.status !== "pending")
+    throw new AppError(`Booking is ${booking.status} and can no longer be paid for`, 400);
 
   const amountInPaise = Math.round(booking.totalAmount * 100);
 
@@ -48,7 +57,7 @@ export const createPaymentIntent = async (req, res) => {
 };
 
 export const confirmPayment = async (req, res) => {
-  const { razorpayPaymentId, razorpayOrderId, razorpaySignature, bookingId } = req.body;
+  const { razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
 
   if (!verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
     throw new AppError("Payment verification failed: invalid signature", 400);
@@ -62,7 +71,11 @@ export const confirmPayment = async (req, res) => {
   // twice for the same order. Without this, the second call would find the booking no
   // longer "pending" and wrongly flip an already-succeeded payment to "failed".
   if (existing.status === "succeeded") {
-    return res.json({ success: true, message: "Payment verified and confirmed", data: { payment: existing } });
+    return res.json({
+      success: true,
+      message: "Payment verified and confirmed",
+      data: { payment: existing },
+    });
   }
 
   const payment = await Payment.findOneAndUpdate(
@@ -73,7 +86,11 @@ export const confirmPayment = async (req, res) => {
   if (!payment) {
     // Lost the race to a concurrent confirm call that just succeeded — treat as success too.
     const latest = await Payment.findById(existing._id);
-    return res.json({ success: true, message: "Payment verified and confirmed", data: { payment: latest } });
+    return res.json({
+      success: true,
+      message: "Payment verified and confirmed",
+      data: { payment: latest },
+    });
   }
 
   // Fix #11: the booking may have been cancelled (or already confirmed by a prior race)
@@ -86,7 +103,10 @@ export const confirmPayment = async (req, res) => {
   if (!booking) {
     payment.status = "failed";
     await payment.save();
-    throw new AppError("This booking is no longer payable — it may have been cancelled or already confirmed", 409);
+    throw new AppError(
+      "This booking is no longer payable — it may have been cancelled or already confirmed",
+      409
+    );
   }
 
   res.json({ success: true, message: "Payment verified and confirmed", data: { payment } });
@@ -112,7 +132,12 @@ export const getPaymentHistory = async (req, res) => {
     success: true,
     data: {
       payments,
-      pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / limit) },
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
     },
   });
 };
@@ -170,5 +195,9 @@ export const refundPayment = async (req, res) => {
 
   await Booking.findByIdAndUpdate(bookingId, { paymentStatus: "refunded", refundedAt: new Date() });
 
-  res.json({ success: true, message: "Refund processed", data: { refundAmount, refundId: refund.id } });
+  res.json({
+    success: true,
+    message: "Refund processed",
+    data: { refundAmount, refundId: refund.id },
+  });
 };
