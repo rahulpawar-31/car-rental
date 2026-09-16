@@ -1,3 +1,4 @@
+// @ts-check
 import mongoose from "mongoose";
 import Car from "../model/car.model.js";
 import Booking from "../model/booking.model.js";
@@ -27,10 +28,16 @@ const ALLOWED_CAR_FIELDS = new Set([
   "securityDeposit",
 ]);
 
+/** @type {import('express').RequestHandler} */
 export const getCars = async (req, res) => {
+  // req.query values are typed string|string[]|ParsedQs by Express (query
+  // strings can technically repeat/nest) -- every field this route reads is
+  // always a plain string in practice, so cast once here rather than at
+  // each usage site below.
+  const q = /** @type {Record<string, string>} */ (req.query);
   const {
-    page = 1,
-    limit = 12,
+    page = "1",
+    limit = "12",
     type,
     brand,
     transmission,
@@ -45,8 +52,20 @@ export const getCars = async (req, res) => {
     pickupDate,
     dropDate,
     featured,
-  } = req.query;
+  } = q;
+  // parseInt(x) || default would silently treat "0" the same as "not
+  // provided" -- on main, page=0 hits Mongo's non-negative-skip check and
+  // 500s, and limit=0 hits Mongoose's "0 means unlimited" and returns every
+  // row uncapped. Neither was ever an intentional API contract (no caller
+  // in this app sends either), so reject them outright instead of
+  // reproducing either accident.
+  const pageNum = parseInt(page);
+  const limitNum = parseInt(limit);
+  if (!Number.isInteger(pageNum) || pageNum < 1) throw new AppError("Invalid page parameter", 400);
+  if (!Number.isInteger(limitNum) || limitNum < 1)
+    throw new AppError("Invalid limit parameter", 400);
 
+  /** @type {Record<string, any>} */
   const query = { isActive: true };
 
   if (type) query.type = { $in: type.split(",").map((t) => t.toLowerCase()) };
@@ -84,6 +103,7 @@ export const getCars = async (req, res) => {
     }
   }
 
+  /** @type {Record<string, Record<string, import('mongoose').SortOrder>>} */
   const sortOptions = {
     "-createdAt": { createdAt: -1 },
     "price-asc": { pricePerDay: 1 },
@@ -97,8 +117,8 @@ export const getCars = async (req, res) => {
     Car.find(query)
       .populate("location", "name city")
       .sort(sortOptions[sort] || { createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit))
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
       .lean(),
     Car.countDocuments(query),
   ]);
@@ -108,15 +128,16 @@ export const getCars = async (req, res) => {
     data: {
       cars,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        pages: Math.ceil(total / limit),
+        pages: Math.ceil(total / limitNum),
       },
     },
   });
 };
 
+/** @type {import('express').RequestHandler} */
 export const getCarById = async (req, res) => {
   const car = await Car.findById(req.params.id).populate(
     "location",
@@ -127,6 +148,7 @@ export const getCarById = async (req, res) => {
   res.json({ success: true, data: { car } });
 };
 
+/** @type {import('express').RequestHandler} */
 export const getFeaturedCars = async (req, res) => {
   const cars = await Car.find({ isFeatured: true, isActive: true, isAvailable: true })
     .populate("location", "name city")
@@ -136,6 +158,7 @@ export const getFeaturedCars = async (req, res) => {
   res.json({ success: true, data: { cars } });
 };
 
+/** @type {import('express').RequestHandler} */
 export const getCarBookedDates = async (req, res) => {
   const { id } = req.params;
 
@@ -161,9 +184,10 @@ export const getCarBookedDates = async (req, res) => {
   res.json({ success: true, data: { bookedRanges } });
 };
 
+/** @type {import('express').RequestHandler} */
 export const checkCarAvailability = async (req, res) => {
   const { id } = req.params;
-  const { pickupDate, dropDate } = req.query;
+  const { pickupDate, dropDate } = /** @type {Record<string, string>} */ (req.query);
 
   if (!pickupDate || !dropDate) throw new AppError("Pickup and drop dates required", 400);
 
@@ -182,13 +206,19 @@ export const checkCarAvailability = async (req, res) => {
   res.json({ success: true, data: { available } });
 };
 
+/** @type {import('express').RequestHandler} */
 export const createCar = async (req, res) => {
+  /** @type {Record<string, any>} */
   const carData = Object.fromEntries(
     Object.entries(req.body).filter(([k]) => ALLOWED_CAR_FIELDS.has(k))
   );
 
-  if (req.files?.length > 0) {
-    carData.images = req.files.map((f, i) => ({
+  // uploadCarImages (upload.middleware.js) always uses multer's .array(),
+  // so req.files here is always Express.Multer.File[], never the
+  // fieldname-keyed shape multer's other .fields()/.any() modes produce.
+  const files = /** @type {Express.Multer.File[] | undefined} */ (req.files);
+  if (files?.length) {
+    carData.images = files.map((f, i) => ({
       url: f.path,
       publicId: f.filename,
       isPrimary: i === 0,
@@ -199,7 +229,9 @@ export const createCar = async (req, res) => {
   res.status(201).json({ success: true, message: "Car created", data: { car } });
 };
 
+/** @type {import('express').RequestHandler} */
 export const updateCar = async (req, res) => {
+  /** @type {Record<string, any>} */
   const updates = Object.fromEntries(
     Object.entries(req.body).filter(([k]) => ALLOWED_CAR_FIELDS.has(k))
   );
@@ -212,10 +244,13 @@ export const updateCar = async (req, res) => {
   res.json({ success: true, message: "Car updated", data: { car } });
 };
 
+/** @type {import('express').RequestHandler} */
 export const addCarImages = async (req, res) => {
-  if (!req.files?.length) throw new AppError("No images uploaded", 400);
+  // uploadCarImages always uses multer's .array(), see createCar's comment.
+  const files = /** @type {Express.Multer.File[] | undefined} */ (req.files);
+  if (!files?.length) throw new AppError("No images uploaded", 400);
 
-  const newImages = req.files.map((f) => ({ url: f.path, publicId: f.filename, isPrimary: false }));
+  const newImages = files.map((f) => ({ url: f.path, publicId: f.filename, isPrimary: false }));
 
   const car = await Car.findByIdAndUpdate(
     req.params.id,
@@ -227,6 +262,7 @@ export const addCarImages = async (req, res) => {
   res.json({ success: true, message: "Images added", data: { images: car.images } });
 };
 
+/** @type {import('express').RequestHandler} */
 export const deleteCarImage = async (req, res) => {
   const { id, imageId } = req.params;
   const car = await Car.findById(id);
@@ -245,6 +281,7 @@ export const deleteCarImage = async (req, res) => {
   res.json({ success: true, message: "Image deleted" });
 };
 
+/** @type {import('express').RequestHandler} */
 export const deleteCar = async (req, res) => {
   const car = await Car.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
   if (!car) throw new AppError("Car not found", 404);
@@ -252,32 +289,36 @@ export const deleteCar = async (req, res) => {
   res.json({ success: true, message: "Car deactivated" });
 };
 
+/** @type {import('express').RequestHandler} */
 export const uploadCarDocument = async (req, res) => {
   const { id, docType } = req.params;
   const validTypes = ["insurance", "registration", "pollution"];
   if (!validTypes.includes(docType))
     throw new AppError("Invalid document type. Use: insurance, registration, pollution", 400);
+  // Narrow now that docType is checked against validTypes above.
+  const docKey = /** @type {'insurance'|'registration'|'pollution'} */ (docType);
   if (!req.file) throw new AppError("No document uploaded", 400);
 
-  const existing = await Car.findById(id).select(`documents.${docType}`);
+  const existing = await Car.findById(id).select(`documents.${docKey}`);
   if (!existing) throw new AppError("Car not found", 404);
 
-  const oldDoc = existing.documents?.[docType];
+  const oldDoc = existing.documents?.[docKey];
   if (oldDoc?.url) {
     const publicId = oldDoc.publicId || extractPublicIdFromUrl(oldDoc.url, "car-rental/documents");
     await deleteAsset(publicId);
   }
 
   const { expiryDate } = req.body;
+  /** @type {Record<string, any>} */
   const update = {
-    [`documents.${docType}.url`]: req.file.path,
-    [`documents.${docType}.publicId`]: req.file.filename,
-    [`documents.${docType}.verified`]: false,
+    [`documents.${docKey}.url`]: req.file.path,
+    [`documents.${docKey}.publicId`]: req.file.filename,
+    [`documents.${docKey}.verified`]: false,
   };
   if (expiryDate) {
     const parsedExpiry = parseValidDate(expiryDate);
     if (!parsedExpiry) throw new AppError("Invalid expiry date", 400);
-    update[`documents.${docType}.expiryDate`] = parsedExpiry;
+    update[`documents.${docKey}.expiryDate`] = parsedExpiry;
   }
 
   const car = await Car.findByIdAndUpdate(id, update, { new: true });
@@ -290,6 +331,7 @@ export const uploadCarDocument = async (req, res) => {
   });
 };
 
+/** @type {import('express').RequestHandler} */
 export const verifyCarDocument = async (req, res) => {
   const { id, docType } = req.params;
   const validTypes = ["insurance", "registration", "pollution"];
@@ -309,6 +351,7 @@ export const verifyCarDocument = async (req, res) => {
   });
 };
 
+/** @type {import('express').RequestHandler} */
 export const getCarFilters = async (req, res) => {
   const [brands, types, fuelTypes, priceRange] = await Promise.all([
     Car.distinct("brand", { isActive: true }),
