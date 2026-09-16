@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getBookingById } from '../api/bookings'
 import { cancelBooking } from '../api/bookings'
+import { getErrorMessage } from '../api/errors'
 import Spinner from '../components/ui/Spinner'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { toast } from 'sonner'
@@ -54,7 +55,7 @@ export default function BookingDetail() {
       setBooking(prev => ({ ...prev, status: 'cancelled' }))
       toast.success(data.data.message || 'Booking cancelled')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to cancel booking')
+      toast.error(getErrorMessage(err, 'Failed to cancel booking'))
     } finally {
       setCancelling(false)
     }

@@ -19,6 +19,7 @@ import {
 } from '../api/admin'
 import { refundPayment } from '../api/payments'
 import { getLocations } from '../api/locations'
+import { getErrorMessage } from '../api/errors'
 import Spinner from '../components/ui/Spinner'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { toast } from 'sonner'
@@ -383,7 +384,7 @@ function UsersTab() {
       setUsers(prev => prev.map(u => u._id === id ? { ...u, isActive: data.data.isActive } : u))
       toast.success(data.message)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update user')
+      toast.error(getErrorMessage(err, 'Failed to update user'))
     } finally {
       setToggling(null)
     }
@@ -490,7 +491,7 @@ function BookingsTab() {
       setBookings(prev => prev.map(b => b._id === id ? { ...b, status: newStatus } : b))
       toast.success('Booking status updated')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update')
+      toast.error(getErrorMessage(err, 'Failed to update'))
     } finally {
       setUpdating(null)
     }
@@ -716,7 +717,7 @@ function CouponsTab() {
       setForm(EMPTY_COUPON)
       load()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create coupon')
+      toast.error(getErrorMessage(err, 'Failed to create coupon'))
     } finally {
       setSaving(false)
     }
@@ -781,7 +782,7 @@ function CouponsTab() {
       setEditingCoupon(null)
       load()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update coupon')
+      toast.error(getErrorMessage(err, 'Failed to update coupon'))
     } finally {
       setSaving(false)
     }
@@ -1108,7 +1109,7 @@ function CarsTab() {
       toast.success(modal === 'create' ? 'Car created' : 'Car updated')
       setModal(null)
       load()
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to save') }
+    } catch (err) { toast.error(getErrorMessage(err, 'Failed to save')) }
     finally { setSaving(false) }
   }
 
@@ -1117,7 +1118,7 @@ function CarsTab() {
   const handleDelete = async (id) => {
     setDeleteTarget(null)
     try { await deleteAdminCar(id); toast.success('Car deleted'); load() }
-    catch (err) { toast.error(err.response?.data?.message || 'Failed to delete') }
+    catch (err) { toast.error(getErrorMessage(err, 'Failed to delete')) }
   }
 
   const filtered = cars.filter(c =>
@@ -1371,7 +1372,7 @@ function LocationsTab() {
       else await updateAdminLocation(modal._id, form)
       toast.success(modal === 'create' ? 'Location created' : 'Location updated')
       setModal(null); load()
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to save') }
+    } catch (err) { toast.error(getErrorMessage(err, 'Failed to save')) }
     finally { setSaving(false) }
   }
 
@@ -1380,7 +1381,7 @@ function LocationsTab() {
   const handleDelete = async (loc) => {
     setDeleteTarget(null)
     try { await deleteAdminLocation(loc._id); toast.success('Location deactivated'); load() }
-    catch (err) { toast.error(err.response?.data?.message || 'Failed') }
+    catch (err) { toast.error(getErrorMessage(err, 'Failed')) }
   }
 
   const field = (label, key, type='text', required=false) => (
@@ -1550,7 +1551,7 @@ function PaymentsTab() {
       toast.success(`Refund of ₹${fmt(data.data?.refundAmount)} processed`)
       load()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Refund failed')
+      toast.error(getErrorMessage(err, 'Refund failed'))
     } finally {
       setRefunding(null)
     }

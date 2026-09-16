@@ -4,6 +4,7 @@ import { User, Mail, Phone, Lock, Save, Heart, MapPin, CreditCard, Star, Calenda
 import { getProfile, updateProfile, changePassword, saveCar, updateDrivingLicense } from '../api/users'
 import { getMyReviews, updateReview, deleteReview } from '../api/reviews'
 import api from '../api/client'
+import { getErrorMessage } from '../api/errors'
 import useAuthStore from '../store/authStore'
 import { toast } from 'sonner'
 import Spinner from '../components/ui/Spinner'
@@ -89,7 +90,7 @@ export default function Profile() {
       setUser(data.data.user)
       toast.success('Avatar updated!')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to upload avatar')
+      toast.error(getErrorMessage(err, 'Failed to upload avatar'))
     } finally {
       setUploadingAvatar(false)
     }
@@ -144,7 +145,7 @@ export default function Profile() {
       setUser(data.data.user)
       toast.success('Profile updated!')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update profile')
+      toast.error(getErrorMessage(err, 'Failed to update profile'))
     } finally {
       setSaving(false)
     }
@@ -157,7 +158,7 @@ export default function Profile() {
       await updateDrivingLicense(licenseForm)
       toast.success('Driving license updated!')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update license')
+      toast.error(getErrorMessage(err, 'Failed to update license'))
     } finally {
       setSaving(false)
     }
@@ -173,7 +174,7 @@ export default function Profile() {
       toast.success('Password changed!')
       setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to change password')
+      toast.error(getErrorMessage(err, 'Failed to change password'))
     } finally {
       setSaving(false)
     }

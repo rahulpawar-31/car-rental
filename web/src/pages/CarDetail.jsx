@@ -7,6 +7,7 @@ import { getCarReviews } from '../api/reviews'
 import { saveCar } from '../api/users'
 import { createBooking } from '../api/bookings'
 import { getLocations } from '../api/locations'
+import { getErrorMessage } from '../api/errors'
 import useAuthStore from '../store/authStore'
 import Spinner from '../components/ui/Spinner'
 import { toast } from 'sonner'
@@ -282,7 +283,7 @@ export default function CarDetail() {
       toast.success('Booking created!')
       navigate(`/payment/${data.data.booking._id}`)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create booking')
+      toast.error(getErrorMessage(err, 'Failed to create booking'))
     } finally {
       setFormSubmitting(false)
     }
@@ -298,7 +299,7 @@ export default function CarDetail() {
       toast.success('Booking request submitted!')
       navigate(`/payment/${data.data.booking._id}`)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to submit request')
+      toast.error(getErrorMessage(err, 'Failed to submit request'))
     } finally {
       setFormSubmitting(false)
     }

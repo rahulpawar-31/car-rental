@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import * as authApi from '../api/auth'
+import { getErrorMessage } from '../api/errors'
 
 const useAuthStore = create(
   persist(
@@ -25,7 +26,7 @@ const useAuthStore = create(
           return { success: true }
         } catch (err) {
           set({ isLoading: false })
-          return { success: false, message: err.response?.data?.message || 'Login failed' }
+          return { success: false, message: getErrorMessage(err, 'Login failed') }
         }
       },
 
@@ -39,7 +40,7 @@ const useAuthStore = create(
           return { success: true }
         } catch (err) {
           set({ isLoading: false })
-          return { success: false, message: err.response?.data?.message || 'Registration failed' }
+          return { success: false, message: getErrorMessage(err, 'Registration failed') }
         }
       },
 
