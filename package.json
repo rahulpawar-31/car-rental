@@ -15,6 +15,12 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
-    "playwright": "^1.60.0"
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "playwright": "^1.60.0",
+    "prettier": "^3.9.7"
+  },
+  "scripts": {
+    "prepare": "husky"
   }
 }
