@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Car from "../model/car.model.js";
 import Booking from "../model/booking.model.js";
 import { AppError } from "../middleware/errorHandler.js";
-import { cloudinary } from "../config/cloudinary.js";
+import { deleteAsset, extractPublicIdFromUrl } from "../services/media.js";
 import { escapeRegex } from "../utils/regex.utils.js";
 import { ACTIVE_BOOKING_STATUSES, bookingConflictQuery } from "../services/carAvailability.js";
 
@@ -213,7 +213,7 @@ export const deleteCarImage = async (req, res) => {
   if (!image) throw new AppError("Image not found", 404);
 
   if (image.publicId) {
-    await cloudinary.uploader.destroy(image.publicId).catch(() => {});
+    await deleteAsset(image.publicId);
   }
 
   car.images.pull(imageId);
@@ -235,9 +235,19 @@ export const uploadCarDocument = async (req, res) => {
   if (!validTypes.includes(docType)) throw new AppError("Invalid document type. Use: insurance, registration, pollution", 400);
   if (!req.file) throw new AppError("No document uploaded", 400);
 
+  const existing = await Car.findById(id).select(`documents.${docType}`);
+  if (!existing) throw new AppError("Car not found", 404);
+
+  const oldDoc = existing.documents?.[docType];
+  if (oldDoc?.url) {
+    const publicId = oldDoc.publicId || extractPublicIdFromUrl(oldDoc.url, "car-rental/documents");
+    await deleteAsset(publicId);
+  }
+
   const { expiryDate } = req.body;
   const update = {
     [`documents.${docType}.url`]: req.file.path,
+    [`documents.${docType}.publicId`]: req.file.filename,
     [`documents.${docType}.verified`]: false,
   };
   if (expiryDate) {
