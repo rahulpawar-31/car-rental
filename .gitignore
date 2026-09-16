@@ -16,8 +16,12 @@ web/dist-ssr/
 # Screenshots / temp testing files
 screenshots/
 
-# Claude Code internal
-.claude/
+# Claude Code internal (settings.json + hooks/ are shared project config,
+# tracked deliberately -- see .claude/settings.json)
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json
 
 # Logs
 *.log
