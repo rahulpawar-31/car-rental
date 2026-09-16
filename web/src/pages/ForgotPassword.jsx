@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Car, ArrowLeft, ShieldCheck, KeyRound, Mail } from 'lucide-react'
 import { forgotPassword, verifyOtp, resetPassword } from '../api/auth'
+import { getErrorMessage } from '../api/errors'
 import { toast } from 'sonner'
 
 export default function ForgotPassword() {
@@ -21,7 +22,7 @@ export default function ForgotPassword() {
       toast.success('OTP sent to your email')
       setStep(2)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send OTP')
+      toast.error(getErrorMessage(err, 'Failed to send OTP'))
     } finally {
       setLoading(false)
     }
@@ -35,7 +36,7 @@ export default function ForgotPassword() {
       setResetToken(data.data.resetToken)
       setStep(3)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid or expired OTP')
+      toast.error(getErrorMessage(err, 'Invalid or expired OTP'))
     } finally {
       setLoading(false)
     }
@@ -50,7 +51,7 @@ export default function ForgotPassword() {
       toast.success('Password reset! Please log in.')
       navigate('/login')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to reset password')
+      toast.error(getErrorMessage(err, 'Failed to reset password'))
     } finally {
       setLoading(false)
     }

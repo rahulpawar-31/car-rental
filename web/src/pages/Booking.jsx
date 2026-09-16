@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { Calendar, Clock, User, Mail, Phone, Shield, Tag, ChevronRight, Plane, MapPin } from 'lucide-react'
 import { getCarById } from '../api/cars'
 import { createBooking, applyCoupon } from '../api/bookings'
+import { getErrorMessage } from '../api/errors'
 import { getLocations } from '../api/locations'
 import useAuthStore from '../store/authStore'
 import Spinner from '../components/ui/Spinner'
@@ -126,7 +127,7 @@ export default function Booking() {
       setCouponApplied(true)
       toast.success(`Coupon applied! ₹${data.data.discountAmount} off`)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid coupon')
+      toast.error(getErrorMessage(err, 'Invalid coupon'))
     }
   }
 
@@ -142,7 +143,7 @@ export default function Booking() {
       toast.success('Booking created!')
       navigate(`/payment/${data.data.booking._id}`)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create booking')
+      toast.error(getErrorMessage(err, 'Failed to create booking'))
     } finally {
       setSubmitting(false)
     }
@@ -160,7 +161,7 @@ export default function Booking() {
       toast.success('Booking request submitted! We will confirm shortly.')
       navigate(`/payment/${data.data.booking._id}`)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to submit request')
+      toast.error(getErrorMessage(err, 'Failed to submit request'))
     } finally {
       setSubmitting(false)
     }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getBookingById } from '../api/bookings'
 import { createPaymentIntent, confirmPayment } from '../api/payments'
+import { getErrorMessage } from '../api/errors'
 import useAuthStore from '../store/authStore'
 import Spinner from '../components/ui/Spinner'
 import { toast } from 'sonner'
@@ -78,7 +79,7 @@ function CheckoutForm({ booking, bookingId }) {
       })
     } catch (err) {
       if (err.message !== 'dismissed') {
-        toast.error(err.response?.data?.message || err.message || 'Payment failed. Please try again.')
+        toast.error(getErrorMessage(err, err.message || 'Payment failed. Please try again.'))
       }
     } finally {
       setProcessing(false)

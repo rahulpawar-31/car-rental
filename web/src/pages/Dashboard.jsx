@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Calendar, Car, Clock, CheckCircle, XCircle, Star, X, CalendarClock } from 'lucide-react'
 import { getMyBookings, cancelBooking, rescheduleBooking } from '../api/bookings'
 import { createReview } from '../api/reviews'
+import { getErrorMessage } from '../api/errors'
 import useAuthStore from '../store/authStore'
 import Spinner from '../components/ui/Spinner'
 import ConfirmModal from '../components/ui/ConfirmModal'
@@ -37,7 +38,7 @@ function ReviewModal({ booking, onClose, onSubmitted }) {
       onSubmitted(booking._id)
       onClose()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to submit review')
+      toast.error(getErrorMessage(err, 'Failed to submit review'))
     } finally {
       setSubmitting(false)
     }
@@ -140,7 +141,7 @@ function RescheduleModal({ booking, onClose, onRescheduled }) {
       onRescheduled(data.data.booking)
       onClose()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to reschedule booking')
+      toast.error(getErrorMessage(err, 'Failed to reschedule booking'))
     } finally {
       setSubmitting(false)
     }
@@ -215,7 +216,7 @@ export default function Dashboard() {
       setBookings(prev => prev.map(b => b._id === id ? { ...b, status: 'cancelled' } : b))
       toast.success('Booking cancelled')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to cancel booking')
+      toast.error(getErrorMessage(err, 'Failed to cancel booking'))
     }
   }
 
