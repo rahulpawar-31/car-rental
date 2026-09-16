@@ -2,12 +2,18 @@ set -e
 
 npx lint-staged
 
-# No typecheck script anywhere in this repo (plain JS, no TypeScript). api/
-# and web/ are separate packages with their own test suites (no root-level
-# test script), so each runs from its own directory, mirroring .github/workflows/ci.yml.
+# api/ and web/ are separate packages with their own test suites (no
+# root-level test script), so each runs from its own directory, mirroring
+# .github/workflows/ci.yml. api/'s typecheck is a JSDoc + jsconfig.json
+# @ts-check pilot -- only files that opt in via a `// @ts-check` pragma are
+# actually checked (currently just car.controller.js), everything else in
+# this still-plain-JS repo is untouched.
 
 echo "Running api lint..."
 (cd api && npm run lint)
+
+echo "Running api typecheck..."
+(cd api && npm run typecheck)
 
 echo "Running api tests..."
 (cd api && npm test)

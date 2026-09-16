@@ -15,14 +15,15 @@ export const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed", "active"];
  * (throw, roll back a save, delete a just-created row) — this only
  * removes the duplicated predicate, not each site's own conflict handling.
  *
- * @param {string} [carId] - scope to one car; omit for a fleet-wide check
- *   (e.g. excluding every booked car from a search).
- * @param {Date} pickup
- * @param {Date} drop
- * @param {string} [excludeBookingId] - exclude this booking from the
+ * @param {object} options
+ * @param {string} [options.carId] - scope to one car; omit for a fleet-wide
+ *   check (e.g. excluding every booked car from a search).
+ * @param {Date} options.pickup
+ * @param {Date} options.drop
+ * @param {string} [options.excludeBookingId] - exclude this booking from the
  *   conflict check (e.g. rescheduleBooking checking against everything
  *   except the booking being rescheduled).
- * @param {string} [tieBreakBeforeId] - only consider bookings created
+ * @param {string} [options.tieBreakBeforeId] - only consider bookings created
  *   before this id (e.g. createBooking's post-create race recheck, where
  *   whichever concurrent request's row has the smaller _id wins).
  */
