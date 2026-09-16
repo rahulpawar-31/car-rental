@@ -1,0 +1,16 @@
+set -e
+
+npx lint-staged
+
+# No typecheck script anywhere in this repo (plain JS, no TypeScript). api/
+# and web/ are separate packages with their own test suites (no root-level
+# test script), so each runs from its own directory, mirroring .github/workflows/ci.yml.
+
+echo "Running api tests..."
+(cd api && npm test)
+
+echo "Running web lint..."
+(cd web && npm run lint)
+
+echo "Running web tests..."
+(cd web && npm test)
