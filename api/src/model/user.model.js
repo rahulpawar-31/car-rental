@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true, minlength: 8, select: false },
     phone: { type: String, trim: true },
     avatar: { type: String, default: "" },
+    avatarPublicId: { type: String, default: "" },
     role: { type: String, enum: ["user", "admin"], default: "user" },
     isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
@@ -20,6 +21,7 @@ const userSchema = new mongoose.Schema(
       number: String,
       expiryDate: Date,
       imageUrl: String,
+      imagePublicId: String,
       verified: { type: Boolean, default: false },
     },
     address: {

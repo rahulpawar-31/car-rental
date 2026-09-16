@@ -59,16 +59,19 @@ const carSchema = new mongoose.Schema(
     documents: {
       insurance: {
         url: String,
+        publicId: String,
         expiryDate: Date,
         verified: { type: Boolean, default: false },
       },
       registration: {
         url: String,
+        publicId: String,
         expiryDate: Date,
         verified: { type: Boolean, default: false },
       },
       pollution: {
         url: String,
+        publicId: String,
         expiryDate: Date,
         verified: { type: Boolean, default: false },
       },
