@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { ChevronRight, ChevronDown, Shield, Star, Headphones, Phone, Quote } from 'lucide-react'
 import { getCars, getFeaturedCars, getCarFilters } from '../api/cars'
 import Spinner from '../components/ui/Spinner'
+import CarCard from '../components/ui/CarCard'
 import useAuthStore from '../store/authStore'
 import { ARTICLES } from '../data/articles'
 
@@ -98,7 +99,7 @@ const TYPE_EMOJI = {
 }
 
 export default function Home() {
-  const [, setFeaturedCars] = useState([]) // fetched below but never rendered — see #4
+  const [featuredCars, setFeaturedCars] = useState([])
   const [brandCards, setBrandCards] = useState([])
   const [typeCards, setTypeCards] = useState([])
   const [brands, setBrands] = useState([])
@@ -225,6 +226,25 @@ export default function Home() {
           </form>
         </div>
       </section>
+
+      {/* ── Featured Cars ────────────────────────────────────────── */}
+      {!loading && featuredCars.length > 0 && (
+        <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end justify-between mb-12">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">Featured Cars</h2>
+              <p className="text-gray-500">Hand-picked vehicles from our fleet, ready to book</p>
+            </div>
+            <Link to="/cars" className="hidden sm:flex items-center gap-1 text-teal-600 font-semibold text-sm hover:text-teal-700 shrink-0">
+              View All Cars <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {featuredCars.map(car => <CarCard key={car._id} car={car} />)}
+          </div>
+        </section>
+      )}
 
       {/* ── Browse by Brand ──────────────────────────────────────── */}
       <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

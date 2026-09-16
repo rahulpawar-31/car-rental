@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Home from '../pages/Home'
+import { getFeaturedCars } from '../api/cars'
 
 vi.mock('../api/cars', () => ({
   getCars:        vi.fn(() => Promise.resolve({ data: { data: { cars: [] } } })),
@@ -54,5 +55,26 @@ describe('Home page', () => {
       expect(screen.getByText(/first-time car renters/i)).toBeInTheDocument()
       expect(screen.getAllByText(/road trip/i).length).toBeGreaterThan(0)
     })
+  })
+
+  test('renders a Featured Cars section when the API returns featured cars', async () => {
+    getFeaturedCars.mockResolvedValueOnce({
+      data: { data: { cars: [
+        { _id: 'car1', brand: 'Skoda', model: 'Octavia', type: 'sedan', year: 2024, pricePerDay: 4500, isFeatured: true },
+      ] } },
+    })
+    renderHome()
+    await waitFor(() => {
+      expect(screen.getByText(/featured cars/i)).toBeInTheDocument()
+      expect(screen.getByText(/skoda octavia/i)).toBeInTheDocument()
+    })
+  })
+
+  test('does not render a Featured Cars section when there are none', async () => {
+    renderHome()
+    await waitFor(() => {
+      expect(screen.getAllByText(/read more/i).length).toBeGreaterThan(0)
+    })
+    expect(screen.queryByText(/featured cars/i)).not.toBeInTheDocument()
   })
 })
