@@ -45,8 +45,10 @@ api.interceptors.response.use(
         return api(original)
       } catch (e) {
         processQueue(e, null)
-        localStorage.removeItem('accessToken')
-        useAuthStore.setState({ user: null, accessToken: null })
+        // Route through the store's own clearSession action instead of
+        // setState-ing its fields directly, so authStore stays the single
+        // writer of its own state (and localStorage stays in sync with it).
+        useAuthStore.getState().clearSession()
         return Promise.reject(e)
       } finally {
         isRefreshing = false
