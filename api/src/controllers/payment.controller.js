@@ -1,13 +1,7 @@
-import crypto from "crypto";
-import Razorpay from "razorpay";
 import Booking from "../model/booking.model.js";
 import Payment from "../model/payment.model.js";
 import { AppError } from "../middleware/errorHandler.js";
-
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+import { createOrder, refundPaymentGateway, verifyPaymentSignature, verifyWebhookSignature } from "../services/razorpay.js";
 
 export const createPaymentIntent = async (req, res) => {
   const { bookingId } = req.body;
@@ -19,7 +13,7 @@ export const createPaymentIntent = async (req, res) => {
 
   const amountInPaise = Math.round(booking.totalAmount * 100);
 
-  const order = await razorpay.orders.create({
+  const order = await createOrder({
     amount: amountInPaise,
     currency: "INR",
     receipt: `rcpt_${bookingId}`,
@@ -56,12 +50,7 @@ export const createPaymentIntent = async (req, res) => {
 export const confirmPayment = async (req, res) => {
   const { razorpayPaymentId, razorpayOrderId, razorpaySignature, bookingId } = req.body;
 
-  const expectedSignature = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-    .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-    .digest("hex");
-
-  if (expectedSignature !== razorpaySignature) {
+  if (!verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
     throw new AppError("Payment verification failed: invalid signature", 400);
   }
 
@@ -130,12 +119,8 @@ export const getPaymentHistory = async (req, res) => {
 
 export const razorpayWebhook = async (req, res) => {
   const signature = req.headers["x-razorpay-signature"];
-  const expectedSignature = crypto
-    .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
-    .update(req.rawBody)
-    .digest("hex");
 
-  if (signature !== expectedSignature) {
+  if (!verifyWebhookSignature(req.rawBody, signature)) {
     return res.status(400).json({ success: false, message: "Invalid webhook signature" });
   }
 
@@ -171,7 +156,7 @@ export const refundPayment = async (req, res) => {
   const refundAmount = booking.refundAmount || 0;
   if (refundAmount <= 0) throw new AppError("No refund applicable", 400);
 
-  const refund = await razorpay.payments.refund(payment.razorpayPaymentId, {
+  const refund = await refundPaymentGateway(payment.razorpayPaymentId, {
     amount: Math.round(refundAmount * 100),
     notes: { reason: reason || "Customer requested refund" },
   });
