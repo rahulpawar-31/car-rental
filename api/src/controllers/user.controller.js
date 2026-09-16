@@ -1,7 +1,7 @@
 import User from "../model/user.model.js";
 import Booking from "../model/booking.model.js";
 import { AppError } from "../middleware/errorHandler.js";
-import { cloudinary } from "../config/cloudinary.js";
+import { deleteAsset, extractPublicIdFromUrl } from "../services/media.js";
 import { clearTokenCookies } from "../utils/jwt.utils.js";
 
 export const getProfile = async (req, res) => {
@@ -30,11 +30,12 @@ export const updateAvatar = async (req, res) => {
   const user = await User.findById(req.user._id);
 
   if (user.avatar) {
-    const publicId = user.avatar.split("/").pop().split(".")[0];
-    await cloudinary.uploader.destroy(`car-rental/profiles/${publicId}`).catch(() => {});
+    const publicId = user.avatarPublicId || extractPublicIdFromUrl(user.avatar, "car-rental/profiles");
+    await deleteAsset(publicId);
   }
 
   user.avatar = req.file.path;
+  user.avatarPublicId = req.file.filename;
   await user.save({ validateBeforeSave: false });
 
   res.json({ success: true, message: "Avatar updated", data: { avatar: user.avatar } });
@@ -124,7 +125,17 @@ export const updateDrivingLicense = async (req, res) => {
   const { number, expiryDate } = req.body;
 
   const updateData = { "drivingLicense.number": number, "drivingLicense.expiryDate": expiryDate };
-  if (req.file) updateData["drivingLicense.imageUrl"] = req.file.path;
+
+  if (req.file) {
+    const existing = await User.findById(req.user._id).select("drivingLicense");
+    const oldImageUrl = existing?.drivingLicense?.imageUrl;
+    if (oldImageUrl) {
+      const publicId = existing.drivingLicense.imagePublicId || extractPublicIdFromUrl(oldImageUrl, "car-rental/documents");
+      await deleteAsset(publicId);
+    }
+    updateData["drivingLicense.imageUrl"] = req.file.path;
+    updateData["drivingLicense.imagePublicId"] = req.file.filename;
+  }
 
   const user = await User.findByIdAndUpdate(req.user._id, updateData, { new: true });
   res.json({ success: true, message: "Driving license updated", data: { drivingLicense: user.drivingLicense } });
