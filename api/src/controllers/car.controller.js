@@ -8,9 +8,23 @@ import { parseValidDate } from "../utils/date.utils.js";
 import { ACTIVE_BOOKING_STATUSES, bookingConflictQuery } from "../services/carAvailability.js";
 
 const ALLOWED_CAR_FIELDS = new Set([
-  'name', 'brand', 'model', 'year', 'type', 'color', 'transmission', 'fuelType',
-  'seats', 'pricePerDay', 'location', 'isFeatured', 'isAvailable', 'isActive',
-  'description', 'features', 'securityDeposit',
+  "name",
+  "brand",
+  "model",
+  "year",
+  "type",
+  "color",
+  "transmission",
+  "fuelType",
+  "seats",
+  "pricePerDay",
+  "location",
+  "isFeatured",
+  "isAvailable",
+  "isActive",
+  "description",
+  "features",
+  "securityDeposit",
 ]);
 
 export const getCars = async (req, res) => {
@@ -35,12 +49,15 @@ export const getCars = async (req, res) => {
 
   const query = { isActive: true };
 
-  if (type) query.type = { $in: type.split(",").map(t => t.toLowerCase()) };
-  if (brand) query.brand = { $in: brand.split(",").map(b => new RegExp(`^${escapeRegex(b.trim())}$`, "i")) };
+  if (type) query.type = { $in: type.split(",").map((t) => t.toLowerCase()) };
+  if (brand)
+    query.brand = {
+      $in: brand.split(",").map((b) => new RegExp(`^${escapeRegex(b.trim())}$`, "i")),
+    };
   if (transmission) query.transmission = transmission.toLowerCase();
-  if (fuelType) query.fuelType = { $in: fuelType.split(",").map(f => f.toLowerCase()) };
+  if (fuelType) query.fuelType = { $in: fuelType.split(",").map((f) => f.toLowerCase()) };
   if (location) {
-    if (!mongoose.isValidObjectId(location)) throw new AppError('Invalid location ID', 400);
+    if (!mongoose.isValidObjectId(location)) throw new AppError("Invalid location ID", 400);
     query.location = location;
   }
   if (seats) query.seats = { $gte: parseInt(seats) };
@@ -55,25 +72,24 @@ export const getCars = async (req, res) => {
     query.$text = { $search: search };
   }
 
-  let bookedCarIds = [];
   if (pickupDate && dropDate) {
     const pickup = parseValidDate(pickupDate);
     const drop = parseValidDate(dropDate);
-    if (!pickup || !drop) throw new AppError('Invalid date format', 400);
-    if (pickup >= drop) throw new AppError('Pickup date must be before drop date', 400);
+    if (!pickup || !drop) throw new AppError("Invalid date format", 400);
+    if (pickup >= drop) throw new AppError("Pickup date must be before drop date", 400);
     const bookedBookings = await Booking.find(bookingConflictQuery({ pickup, drop })).select("car");
-    bookedCarIds = bookedBookings.map((b) => b.car.toString());
+    const bookedCarIds = bookedBookings.map((b) => b.car.toString());
     if (bookedCarIds.length > 0) {
       query._id = { $nin: bookedCarIds };
     }
   }
 
   const sortOptions = {
-    "-createdAt":    { createdAt: -1 },
-    "price-asc":     { pricePerDay: 1 },
-    "price-desc":    { pricePerDay: -1 },
-    "rating-desc":   { rating: -1 },
-    "model-asc":     { model: 1 },
+    "-createdAt": { createdAt: -1 },
+    "price-asc": { pricePerDay: 1 },
+    "price-desc": { pricePerDay: -1 },
+    "rating-desc": { rating: -1 },
+    "model-asc": { model: 1 },
     "-totalRentals": { totalRentals: -1 },
   };
 
@@ -102,7 +118,10 @@ export const getCars = async (req, res) => {
 };
 
 export const getCarById = async (req, res) => {
-  const car = await Car.findById(req.params.id).populate("location", "name city address operatingHours");
+  const car = await Car.findById(req.params.id).populate(
+    "location",
+    "name city address operatingHours"
+  );
   if (!car || !car.isActive) throw new AppError("Car not found", 404);
 
   res.json({ success: true, data: { car } });
@@ -121,7 +140,7 @@ export const getCarBookedDates = async (req, res) => {
   const { id } = req.params;
 
   const car = await Car.findById(id);
-  if (!car || !car.isActive) throw new AppError('Car not found', 404);
+  if (!car || !car.isActive) throw new AppError("Car not found", 404);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -131,10 +150,10 @@ export const getCarBookedDates = async (req, res) => {
     status: { $in: ACTIVE_BOOKING_STATUSES },
     dropDate: { $gt: today },
   })
-    .select('pickupDate dropDate')
+    .select("pickupDate dropDate")
     .lean();
 
-  const bookedRanges = bookings.map(b => ({
+  const bookedRanges = bookings.map((b) => ({
     from: b.pickupDate,
     to: b.dropDate,
   }));
@@ -150,8 +169,8 @@ export const checkCarAvailability = async (req, res) => {
 
   const pickup = parseValidDate(pickupDate);
   const drop = parseValidDate(dropDate);
-  if (!pickup || !drop) throw new AppError('Invalid date format', 400);
-  if (pickup >= drop) throw new AppError('Pickup date must be before drop date', 400);
+  if (!pickup || !drop) throw new AppError("Invalid date format", 400);
+  if (pickup >= drop) throw new AppError("Pickup date must be before drop date", 400);
 
   const car = await Car.findById(id);
   if (!car || !car.isActive) throw new AppError("Car not found", 404);
@@ -184,7 +203,10 @@ export const updateCar = async (req, res) => {
   const updates = Object.fromEntries(
     Object.entries(req.body).filter(([k]) => ALLOWED_CAR_FIELDS.has(k))
   );
-  const car = await Car.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
+  const car = await Car.findByIdAndUpdate(req.params.id, updates, {
+    new: true,
+    runValidators: true,
+  });
   if (!car) throw new AppError("Car not found", 404);
 
   res.json({ success: true, message: "Car updated", data: { car } });
@@ -233,7 +255,8 @@ export const deleteCar = async (req, res) => {
 export const uploadCarDocument = async (req, res) => {
   const { id, docType } = req.params;
   const validTypes = ["insurance", "registration", "pollution"];
-  if (!validTypes.includes(docType)) throw new AppError("Invalid document type. Use: insurance, registration, pollution", 400);
+  if (!validTypes.includes(docType))
+    throw new AppError("Invalid document type. Use: insurance, registration, pollution", 400);
   if (!req.file) throw new AppError("No document uploaded", 400);
 
   const existing = await Car.findById(id).select(`documents.${docType}`);
@@ -253,14 +276,18 @@ export const uploadCarDocument = async (req, res) => {
   };
   if (expiryDate) {
     const parsedExpiry = parseValidDate(expiryDate);
-    if (!parsedExpiry) throw new AppError('Invalid expiry date', 400);
+    if (!parsedExpiry) throw new AppError("Invalid expiry date", 400);
     update[`documents.${docType}.expiryDate`] = parsedExpiry;
   }
 
   const car = await Car.findByIdAndUpdate(id, update, { new: true });
   if (!car) throw new AppError("Car not found", 404);
 
-  res.json({ success: true, message: `${docType} document uploaded`, data: { documents: car.documents } });
+  res.json({
+    success: true,
+    message: `${docType} document uploaded`,
+    data: { documents: car.documents },
+  });
 };
 
 export const verifyCarDocument = async (req, res) => {
@@ -275,7 +302,11 @@ export const verifyCarDocument = async (req, res) => {
   );
   if (!car) throw new AppError("Car not found", 404);
 
-  res.json({ success: true, message: `${docType} document verified`, data: { documents: car.documents } });
+  res.json({
+    success: true,
+    message: `${docType} document verified`,
+    data: { documents: car.documents },
+  });
 };
 
 export const getCarFilters = async (req, res) => {

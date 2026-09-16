@@ -11,6 +11,10 @@ export const notFound = (req, res, next) => {
   next(new AppError(`Route ${req.originalUrl} not found`, 404));
 };
 
+// Express only treats a 4-arg function as error-handling middleware; `next`
+// must stay in the signature even though this handler always terminates the
+// response itself.
+// eslint-disable-next-line no-unused-vars
 export const errorHandler = (err, req, res, next) => {
   let { statusCode = 500, message } = err;
 

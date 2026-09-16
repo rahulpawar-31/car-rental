@@ -264,7 +264,14 @@ const cars = await Car.insertMany([
     location: mumbaiAirport._id,
     isAvailable: true,
     isFeatured: true,
-    features: ["AC", "Sunroof", "Leather Seats", "Harman Kardon Sound", "Heads-Up Display", "Parking Assist"],
+    features: [
+      "AC",
+      "Sunroof",
+      "Leather Seats",
+      "Harman Kardon Sound",
+      "Heads-Up Display",
+      "Parking Assist",
+    ],
     description: "The ultimate driving machine. Luxury meets performance.",
     images: [{ url: "/cars/bmw-3series.jpg", isPrimary: true }],
     rating: 0,
@@ -391,7 +398,11 @@ const cars = await Car.insertMany([
     images: [{ url: "/cars/mg-hector.jpg", isPrimary: true }],
     rating: 0,
     reviewCount: 0,
-    specifications: { engine: "2.0L Turbo + 48V Mild Hybrid", power: "143 bhp", fuelEfficiency: "13.9 km/l" },
+    specifications: {
+      engine: "2.0L Turbo + 48V Mild Hybrid",
+      power: "143 bhp",
+      fuelEfficiency: "13.9 km/l",
+    },
   },
   // Pune cars
   {
@@ -533,7 +544,14 @@ const cars = await Car.insertMany([
     location: mumbaiAirport._id,
     isAvailable: true,
     isFeatured: true,
-    features: ["AC", "Panoramic Sunroof", "Burmester Sound", "MBUX Infotainment", "Heated Seats", "360 Camera"],
+    features: [
+      "AC",
+      "Panoramic Sunroof",
+      "Burmester Sound",
+      "MBUX Infotainment",
+      "Heated Seats",
+      "360 Camera",
+    ],
     description: "The pinnacle of luxury motoring with unmatched comfort and style.",
     images: [{ url: "/cars/mercedes-c-class.jpg", isPrimary: true }],
     rating: 0,
@@ -581,7 +599,13 @@ const cars = await Car.insertMany([
     location: delhi._id,
     isAvailable: true,
     isFeatured: false,
-    features: ["AC", "10.25-inch Touchscreen", "Connected Car Tech", "6 Airbags", "Wireless Charging"],
+    features: [
+      "AC",
+      "10.25-inch Touchscreen",
+      "Connected Car Tech",
+      "6 Airbags",
+      "Wireless Charging",
+    ],
     description: "India's safest hatchback with 5-star Global NCAP rating.",
     images: [{ url: "/cars/tata-altroz.jpg", isPrimary: true }],
     rating: 0,
@@ -632,7 +656,8 @@ const cars = await Car.insertMany([
     isAvailable: true,
     isFeatured: true,
     features: ["AC", "Fast Charging", "Sunroof", "360 Camera", "Wireless Charging", "ADAS"],
-    description: "Stylish micro-SUV EV with 421 km range. The most affordable long-range EV in India.",
+    description:
+      "Stylish micro-SUV EV with 421 km range. The most affordable long-range EV in India.",
     images: [{ url: "/cars/tata-punch-ev.jpg", isPrimary: true }],
     rating: 0,
     reviewCount: 0,
@@ -657,8 +682,16 @@ const cars = await Car.insertMany([
     location: mumbaiHub._id,
     isAvailable: true,
     isFeatured: true,
-    features: ["AC", "Panoramic Sunroof", "Bang & Olufsen Sound", "Virtual Cockpit", "Heated Seats", "360 Camera"],
-    description: "German engineering at its finest. A perfectly balanced luxury sedan for every occasion.",
+    features: [
+      "AC",
+      "Panoramic Sunroof",
+      "Bang & Olufsen Sound",
+      "Virtual Cockpit",
+      "Heated Seats",
+      "360 Camera",
+    ],
+    description:
+      "German engineering at its finest. A perfectly balanced luxury sedan for every occasion.",
     images: [{ url: "/cars/audi-a4.jpg", isPrimary: true }],
     rating: 0,
     reviewCount: 0,
@@ -667,7 +700,7 @@ const cars = await Car.insertMany([
 ]);
 console.log(`Created ${cars.length} cars`);
 
-const [hondaCity, creta, swift, innova, bmw, nexonEV, seltos, thar, virtus, hector, slavia, duster] = cars;
+const [hondaCity, creta, swift, innova, bmw, nexonEV, , thar] = cars;
 
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 const today = new Date();
@@ -858,7 +891,8 @@ const bookings = await Booking.insertMany([
 ]);
 console.log(`Created ${bookings.length} bookings`);
 
-const [b_creta_rahul, b_city_priya, b_nexon_arjun, b_bmw_rahul, b_innova_priya, b_thar_arjun, b_city_arjun, b_swift_rahul, b_innova_priya2] = bookings;
+const [b_creta_rahul, b_city_priya, , , , , b_city_arjun, b_swift_rahul, b_innova_priya2] =
+  bookings;
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 await Review.insertMany([
@@ -868,7 +902,8 @@ await Review.insertMany([
     booking: b_creta_rahul._id,
     rating: 5,
     title: "Absolutely loved it!",
-    comment: "The Creta was in pristine condition. Pickup was smooth, and the car drove beautifully. Will definitely rent again.",
+    comment:
+      "The Creta was in pristine condition. Pickup was smooth, and the car drove beautifully. Will definitely rent again.",
     aspects: { cleanliness: 5, comfort: 5, performance: 4, valueForMoney: 5 },
     isApproved: true,
     isVisible: true,
@@ -879,7 +914,8 @@ await Review.insertMany([
     booking: b_city_priya._id,
     rating: 4,
     title: "Great city car",
-    comment: "Honda City was fuel efficient and comfortable. Drop-off at airport was very convenient. Minor issue with AC initially but resolved quickly.",
+    comment:
+      "Honda City was fuel efficient and comfortable. Drop-off at airport was very convenient. Minor issue with AC initially but resolved quickly.",
     aspects: { cleanliness: 4, comfort: 4, performance: 4, valueForMoney: 4 },
     isApproved: true,
     isVisible: true,
@@ -890,7 +926,8 @@ await Review.insertMany([
     booking: b_city_arjun._id,
     rating: 5,
     title: "Perfect for Mumbai roads",
-    comment: "Picked up the Honda City from Mumbai Hub — car was spotless and fuel tank was full. Handled city traffic like a dream. Great value for the price.",
+    comment:
+      "Picked up the Honda City from Mumbai Hub — car was spotless and fuel tank was full. Handled city traffic like a dream. Great value for the price.",
     aspects: { cleanliness: 5, comfort: 5, performance: 4, valueForMoney: 5 },
     isApproved: true,
     isVisible: true,
@@ -901,7 +938,8 @@ await Review.insertMany([
     booking: b_swift_rahul._id,
     rating: 4,
     title: "Budget-friendly and fun",
-    comment: "The Swift was a blast to drive. Very fuel efficient and easy to park. Great pick for a quick city trip. Would recommend for solo travellers.",
+    comment:
+      "The Swift was a blast to drive. Very fuel efficient and easy to park. Great pick for a quick city trip. Would recommend for solo travellers.",
     aspects: { cleanliness: 4, comfort: 4, performance: 4, valueForMoney: 5 },
     isApproved: true,
     isVisible: true,
@@ -912,7 +950,8 @@ await Review.insertMany([
     booking: b_innova_priya2._id,
     rating: 5,
     title: "Spacious and comfortable family ride",
-    comment: "Rented the Innova Crysta for a family airport transfer. Seven seats with plenty of luggage space. Driver comfort is top-notch and the rear AC was a lifesaver.",
+    comment:
+      "Rented the Innova Crysta for a family airport transfer. Seven seats with plenty of luggage space. Driver comfort is top-notch and the rear AC was a lifesaver.",
     aspects: { cleanliness: 5, comfort: 5, performance: 5, valueForMoney: 4 },
     isApproved: true,
     isVisible: true,
