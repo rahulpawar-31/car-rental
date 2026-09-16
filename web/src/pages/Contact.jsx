@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle } from 'lucide-react'
 import api from '../api/client'
+import { getErrorMessage } from '../api/errors'
 
 const CONTACT_INFO = [
   { icon: Phone,   label: 'Phone',   value: '1.800.456.8743',         sub: 'Mon–Fri 9:00–17:00' },
@@ -43,7 +44,7 @@ export default function Contact() {
       setSent(true)
       setForm({ name: '', email: '', subject: '', message: '' })
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to send message. Please try again.'
+      const msg = getErrorMessage(err, 'Failed to send message. Please try again.')
       setErrors({ message: msg })
     } finally {
       setSending(false)
