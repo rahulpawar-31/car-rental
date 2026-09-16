@@ -4,6 +4,7 @@ import Booking from "../model/booking.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { deleteAsset, extractPublicIdFromUrl } from "../services/media.js";
 import { escapeRegex } from "../utils/regex.utils.js";
+import { parseValidDate } from "../utils/date.utils.js";
 import { ACTIVE_BOOKING_STATUSES, bookingConflictQuery } from "../services/carAvailability.js";
 
 const ALLOWED_CAR_FIELDS = new Set([
@@ -56,9 +57,9 @@ export const getCars = async (req, res) => {
 
   let bookedCarIds = [];
   if (pickupDate && dropDate) {
-    const pickup = new Date(pickupDate);
-    const drop = new Date(dropDate);
-    if (isNaN(pickup.getTime()) || isNaN(drop.getTime())) throw new AppError('Invalid date format', 400);
+    const pickup = parseValidDate(pickupDate);
+    const drop = parseValidDate(dropDate);
+    if (!pickup || !drop) throw new AppError('Invalid date format', 400);
     if (pickup >= drop) throw new AppError('Pickup date must be before drop date', 400);
     const bookedBookings = await Booking.find(bookingConflictQuery({ pickup, drop })).select("car");
     bookedCarIds = bookedBookings.map((b) => b.car.toString());
@@ -147,9 +148,9 @@ export const checkCarAvailability = async (req, res) => {
 
   if (!pickupDate || !dropDate) throw new AppError("Pickup and drop dates required", 400);
 
-  const pickup = new Date(pickupDate);
-  const drop = new Date(dropDate);
-  if (isNaN(pickup.getTime()) || isNaN(drop.getTime())) throw new AppError('Invalid date format', 400);
+  const pickup = parseValidDate(pickupDate);
+  const drop = parseValidDate(dropDate);
+  if (!pickup || !drop) throw new AppError('Invalid date format', 400);
   if (pickup >= drop) throw new AppError('Pickup date must be before drop date', 400);
 
   const car = await Car.findById(id);
@@ -251,8 +252,8 @@ export const uploadCarDocument = async (req, res) => {
     [`documents.${docType}.verified`]: false,
   };
   if (expiryDate) {
-    const parsedExpiry = new Date(expiryDate);
-    if (isNaN(parsedExpiry.getTime())) throw new AppError('Invalid expiry date', 400);
+    const parsedExpiry = parseValidDate(expiryDate);
+    if (!parsedExpiry) throw new AppError('Invalid expiry date', 400);
     update[`documents.${docType}.expiryDate`] = parsedExpiry;
   }
 

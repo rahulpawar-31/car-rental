@@ -4,14 +4,16 @@ import Coupon from "../model/coupon.model.js";
 import Payment from "../model/payment.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { sendBookingConfirmationEmail } from "../utils/email.utils.js";
+import { parseValidDate } from "../utils/date.utils.js";
 import { computeBookingQuote } from "../services/booking.quote.js";
 import { bookingConflictQuery } from "../services/carAvailability.js";
 
 export const createBooking = async (req, res) => {
   const { carId, pickupLocationId, dropLocationId, pickupDate, dropDate, couponCode, driverDetails, notes, rentalType, totalHours } = req.body;
 
-  const pickup = new Date(pickupDate);
-  const drop = new Date(dropDate);
+  const pickup = parseValidDate(pickupDate);
+  const drop = parseValidDate(dropDate);
+  if (!pickup || !drop) throw new AppError("Invalid date format", 400);
 
   if (pickup >= drop) throw new AppError("Drop date must be after pickup date", 400);
   if (pickup < new Date()) throw new AppError("Pickup date cannot be in the past", 400);
@@ -210,8 +212,9 @@ export const rescheduleBooking = async (req, res) => {
     throw new AppError("pickupDate and dropDate are required", 400);
   }
 
-  const pickup = new Date(pickupDate);
-  const drop = new Date(dropDate);
+  const pickup = parseValidDate(pickupDate);
+  const drop = parseValidDate(dropDate);
+  if (!pickup || !drop) throw new AppError("Invalid date format", 400);
 
   if (pickup >= drop) throw new AppError("Drop date must be after pickup date", 400);
   if (pickup < new Date()) throw new AppError("Pickup date cannot be in the past", 400);
