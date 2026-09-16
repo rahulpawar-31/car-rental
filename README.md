@@ -19,7 +19,8 @@ A full-stack car rental platform where users can browse cars, make bookings, and
 car/
 ├── api/                  # Express backend (port 5000)
 │   └── src/
-│       ├── server.js
+│       ├── app.js        # Express app: middleware, routes (no .listen/DB connect)
+│       ├── server.js     # Entry point: connects DB, then app.listen(...)
 │       ├── config/       # DB, Cloudinary
 │       ├── model/        # Mongoose schemas
 │       ├── controllers/  # Route handlers
