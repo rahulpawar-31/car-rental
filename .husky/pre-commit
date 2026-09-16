@@ -6,6 +6,9 @@ npx lint-staged
 # and web/ are separate packages with their own test suites (no root-level
 # test script), so each runs from its own directory, mirroring .github/workflows/ci.yml.
 
+echo "Running api lint..."
+(cd api && npm run lint)
+
 echo "Running api tests..."
 (cd api && npm test)
 

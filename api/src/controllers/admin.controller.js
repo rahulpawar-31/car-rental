@@ -4,7 +4,6 @@ import Booking from "../model/booking.model.js";
 import Payment from "../model/payment.model.js";
 import Review from "../model/review.model.js";
 import Coupon from "../model/coupon.model.js";
-import Location from "../model/location.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { escapeRegex } from "../utils/regex.utils.js";
 
@@ -43,7 +42,12 @@ export const getDashboardStats = async (req, res) => {
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]),
     Payment.aggregate([
-      { $match: { status: "succeeded", createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } } },
+      {
+        $match: {
+          status: "succeeded",
+          createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth },
+        },
+      },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]),
     Review.countDocuments({ isApproved: false, isFlagged: false }),
@@ -70,7 +74,8 @@ export const getDashboardStats = async (req, res) => {
 
   const thisMonthRevenue = revenueThisMonth[0]?.total || 0;
   const lastMonthRevenue = revenueLastMonth[0]?.total || 0;
-  const revenueGrowth = lastMonthRevenue > 0 ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
+  const revenueGrowth =
+    lastMonthRevenue > 0 ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
   const bookingGrowth =
     bookingsLastMonth > 0 ? ((bookingsThisMonth - bookingsLastMonth) / bookingsLastMonth) * 100 : 0;
 
@@ -103,16 +108,31 @@ export const getAllUsers = async (req, res) => {
   const query = {};
   if (role) query.role = role;
   if (active !== undefined) query.isActive = active === "true";
-  if (search) query.$or = [{ name: new RegExp(escapeRegex(search), "i") }, { email: new RegExp(escapeRegex(search), "i") }];
+  if (search)
+    query.$or = [
+      { name: new RegExp(escapeRegex(search), "i") },
+      { email: new RegExp(escapeRegex(search), "i") },
+    ];
 
   const [users, total] = await Promise.all([
-    User.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(parseInt(limit)),
+    User.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit)),
     User.countDocuments(query),
   ]);
 
   res.json({
     success: true,
-    data: { users, pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / limit) } },
+    data: {
+      users,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    },
   });
 };
 
@@ -124,7 +144,11 @@ export const toggleUserStatus = async (req, res) => {
   user.isActive = !user.isActive;
   await user.save({ validateBeforeSave: false });
 
-  res.json({ success: true, message: `User ${user.isActive ? "activated" : "deactivated"}`, data: { isActive: user.isActive } });
+  res.json({
+    success: true,
+    message: `User ${user.isActive ? "activated" : "deactivated"}`,
+    data: { isActive: user.isActive },
+  });
 };
 
 export const getAllBookings = async (req, res) => {
@@ -137,7 +161,9 @@ export const getAllBookings = async (req, res) => {
 
   if (search) {
     const escaped = escapeRegex(search);
-    const users = await User.find({ $or: [{ name: new RegExp(escaped, "i") }, { email: new RegExp(escaped, "i") }] }).select("_id");
+    const users = await User.find({
+      $or: [{ name: new RegExp(escaped, "i") }, { email: new RegExp(escaped, "i") }],
+    }).select("_id");
     query.$or = [
       { user: { $in: users.map((u) => u._id) } },
       { bookingNumber: new RegExp(escaped, "i") },
@@ -158,7 +184,15 @@ export const getAllBookings = async (req, res) => {
 
   res.json({
     success: true,
-    data: { bookings, pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / limit) } },
+    data: {
+      bookings,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    },
   });
 };
 
@@ -183,7 +217,10 @@ export const updateBookingStatus = async (req, res) => {
   if (status && status !== booking.status) {
     const allowedNext = ALLOWED_STATUS_TRANSITIONS[booking.status] || [];
     if (!allowedNext.includes(status)) {
-      throw new AppError(`Cannot change booking status from "${booking.status}" to "${status}"`, 400);
+      throw new AppError(
+        `Cannot change booking status from "${booking.status}" to "${status}"`,
+        400
+      );
     }
 
     if (status === "cancelled") {
@@ -217,12 +254,19 @@ export const getAllPayments = async (req, res) => {
   const [payments, total, totalRevenue] = await Promise.all([
     Payment.find(query)
       .populate("user", "name email")
-      .populate({ path: "booking", select: "bookingNumber", populate: { path: "car", select: "name brand" } })
+      .populate({
+        path: "booking",
+        select: "bookingNumber",
+        populate: { path: "car", select: "name brand" },
+      })
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit)),
     Payment.countDocuments(query),
-    Payment.aggregate([{ $match: { status: "succeeded" } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+    Payment.aggregate([
+      { $match: { status: "succeeded" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]),
   ]);
 
   res.json({
@@ -230,7 +274,12 @@ export const getAllPayments = async (req, res) => {
     data: {
       payments,
       totalRevenue: totalRevenue[0]?.total || 0,
-      pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / limit) },
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
     },
   });
 };
@@ -255,7 +304,15 @@ export const moderateReviews = async (req, res) => {
 
   res.json({
     success: true,
-    data: { reviews, pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / limit) } },
+    data: {
+      reviews,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    },
   });
 };
 
@@ -267,7 +324,11 @@ export const approveReview = async (req, res) => {
   );
   if (!review) throw new AppError("Review not found", 404);
 
-  res.json({ success: true, message: `Review ${req.body.approved ? "approved" : "rejected"}`, data: { review } });
+  res.json({
+    success: true,
+    message: `Review ${req.body.approved ? "approved" : "rejected"}`,
+    data: { review },
+  });
 };
 
 export const createCoupon = async (req, res) => {
@@ -285,7 +346,10 @@ export const getCoupons = async (req, res) => {
 };
 
 export const updateCoupon = async (req, res) => {
-  const coupon = await Coupon.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  const coupon = await Coupon.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true,
+  });
   if (!coupon) throw new AppError("Coupon not found", 404);
 
   res.json({ success: true, message: "Coupon updated", data: { coupon } });
@@ -298,7 +362,10 @@ export const deleteCoupon = async (req, res) => {
 
 export const getFleetStats = async (req, res) => {
   const [carsByType, carsByLocation, carsByStatus, topRentedCars] = await Promise.all([
-    Car.aggregate([{ $match: { isActive: true } }, { $group: { _id: "$type", count: { $sum: 1 } } }]),
+    Car.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: "$type", count: { $sum: 1 } } },
+    ]),
     Car.aggregate([
       { $match: { isActive: true } },
       { $group: { _id: "$location", count: { $sum: 1 } } },
@@ -310,7 +377,10 @@ export const getFleetStats = async (req, res) => {
       { $match: { isActive: true } },
       { $group: { _id: "$isAvailable", count: { $sum: 1 } } },
     ]),
-    Car.find({ isActive: true }).sort({ totalRentals: -1 }).limit(5).select("name brand model totalRentals rating"),
+    Car.find({ isActive: true })
+      .sort({ totalRentals: -1 })
+      .limit(5)
+      .select("name brand model totalRentals rating"),
   ]);
 
   res.json({ success: true, data: { carsByType, carsByLocation, carsByStatus, topRentedCars } });
