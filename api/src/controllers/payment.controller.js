@@ -121,7 +121,7 @@ export const razorpayWebhook = async (req, res) => {
   const signature = req.headers["x-razorpay-signature"];
 
   if (!verifyWebhookSignature(req.rawBody, signature)) {
-    return res.status(400).json({ success: false, message: "Invalid webhook signature" });
+    throw new AppError("Invalid webhook signature", 400);
   }
 
   const { event, payload } = req.body;
