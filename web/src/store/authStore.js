@@ -44,10 +44,18 @@ const useAuthStore = create(
         }
       },
 
-      logout: async () => {
-        try { await authApi.logout() } catch { /* ignore logout errors */ }
+      // Synchronously clears the local session (state + localStorage) without
+      // calling the backend. Shared by logout(), fetchMe()'s failure path, and
+      // api/client.js's response interceptor, so there's exactly one place
+      // that defines what "signed out" looks like.
+      clearSession: () => {
         localStorage.removeItem('accessToken')
         set({ user: null, accessToken: null })
+      },
+
+      logout: async () => {
+        try { await authApi.logout() } catch { /* ignore logout errors */ }
+        get().clearSession()
       },
 
       fetchMe: async () => {
@@ -55,8 +63,7 @@ const useAuthStore = create(
           const { data } = await authApi.getMe()
           set({ user: data.data.user })
         } catch {
-          set({ user: null, accessToken: null })
-          localStorage.removeItem('accessToken')
+          get().clearSession()
         }
       },
 
