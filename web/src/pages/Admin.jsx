@@ -20,6 +20,7 @@ import {
 import { refundPayment } from '../api/payments'
 import { getLocations } from '../api/locations'
 import { getErrorMessage } from '../api/errors'
+import { useAdminList } from '../hooks/useAdminList'
 import Spinner from '../components/ui/Spinner'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import { toast } from 'sonner'
@@ -357,25 +358,16 @@ function AvailabilityTab() {
 
 // ─── Users Tab ────────────────────────────────────────────────────────────────
 function UsersTab() {
-  const [users, setUsers] = useState([])
-  const [pagination, setPagination] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
+  const {
+    items: users, setItems: setUsers, pagination, loading,
+    page, setPage, filters, setFilter,
+  } = useAdminList({
+    fetcher: getAllUsers,
+    itemsKey: 'users',
+    initialFilters: { search: '' },
+    errorMessage: 'Failed to load users',
+  })
   const [toggling, setToggling] = useState(null)
-
-  const load = useCallback(() => {
-    setLoading(true)
-    getAllUsers({ page, search: search || undefined })
-      .then(({ data }) => { setUsers(data.data.users); setPagination(data.data.pagination) })
-      .catch(() => toast.error('Failed to load users'))
-      .finally(() => setLoading(false))
-  }, [page, search])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load()
-  }, [load])
 
   const handleToggle = async (id) => {
     setToggling(id)
@@ -395,7 +387,7 @@ function UsersTab() {
       <div className="flex items-center gap-3 mb-5">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search name or email..."
+          <input value={filters.search} onChange={e => setFilter('search', e.target.value)} placeholder="Search name or email..."
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <span className="text-sm text-gray-500">{pagination.total ?? 0} users</span>
@@ -463,26 +455,16 @@ function UsersTab() {
 
 // ─── Bookings Tab ─────────────────────────────────────────────────────────────
 function BookingsTab() {
-  const [bookings, setBookings] = useState([])
-  const [pagination, setPagination] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState('')
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
+  const {
+    items: bookings, setItems: setBookings, pagination, loading,
+    page, setPage, filters, setFilter,
+  } = useAdminList({
+    fetcher: getAllBookings,
+    itemsKey: 'bookings',
+    initialFilters: { status: '', search: '' },
+    errorMessage: 'Failed to load bookings',
+  })
   const [updating, setUpdating] = useState(null)
-
-  const load = useCallback(() => {
-    setLoading(true)
-    getAllBookings({ page, status: status || undefined, search: search || undefined })
-      .then(({ data }) => { setBookings(data.data.bookings); setPagination(data.data.pagination) })
-      .catch(() => toast.error('Failed to load bookings'))
-      .finally(() => setLoading(false))
-  }, [page, status, search])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load()
-  }, [load])
 
   const handleStatusChange = async (id, newStatus) => {
     setUpdating(id)
@@ -502,10 +484,10 @@ function BookingsTab() {
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <div className="relative flex-1 min-w-[180px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search booking# or customer..."
+          <input value={filters.search} onChange={e => setFilter('search', e.target.value)} placeholder="Search booking# or customer..."
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
-        <select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}
+        <select value={filters.status} onChange={e => setFilter('status', e.target.value)}
           className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none">
           <option value="">All statuses</option>
           {BOOKING_STATUSES.map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
@@ -565,25 +547,16 @@ function BookingsTab() {
 
 // ─── Reviews Tab ──────────────────────────────────────────────────────────────
 function ReviewsTab() {
-  const [reviews, setReviews] = useState([])
-  const [pagination, setPagination] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('pending')
-  const [page, setPage] = useState(1)
+  const {
+    items: reviews, setItems: setReviews, pagination, loading,
+    page, setPage, filters, setFilter,
+  } = useAdminList({
+    fetcher: getAdminReviews,
+    itemsKey: 'reviews',
+    initialFilters: { status: 'pending' },
+    errorMessage: 'Failed to load reviews',
+  })
   const [acting, setActing] = useState(null)
-
-  const load = useCallback(() => {
-    setLoading(true)
-    getAdminReviews({ page, status: filter || undefined })
-      .then(({ data }) => { setReviews(data.data.reviews); setPagination(data.data.pagination) })
-      .catch(() => toast.error('Failed to load reviews'))
-      .finally(() => setLoading(false))
-  }, [page, filter])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load()
-  }, [load])
 
   const handle = async (id, approved) => {
     setActing(id)
@@ -604,8 +577,8 @@ function ReviewsTab() {
         {['pending', 'approved', 'flagged', ''].map((f, i) => {
           const labels = ['Pending', 'Approved', 'Flagged', 'All']
           return (
-            <button key={i} onClick={() => { setFilter(f); setPage(1) }}
-              className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${filter === f ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            <button key={i} onClick={() => setFilter('status', f)}
+              className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${filters.status === f ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
               {labels[i]}
             </button>
           )
