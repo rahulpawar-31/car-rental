@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Admin from '../pages/Admin'
+import { createAdminCar, createAdminLocation } from '../api/admin'
 
 const mockGetAllUsers = vi.fn()
 const mockToggleUserStatus = vi.fn()
@@ -144,5 +145,68 @@ describe('Admin Users tab — deactivate confirm gate', () => {
 
     await waitFor(() => expect(mockToggleUserStatus).toHaveBeenCalledWith('user-2'))
     expect(screen.queryByText(/keep it/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('Admin Cars tab — modal (shared Modal shell)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  async function goToCarsTab() {
+    renderAdmin()
+    fireEvent.click(screen.getByRole('button', { name: /^cars$/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /add car/i })).toBeInTheDocument()
+    )
+  }
+
+  test('Add Car opens the modal with the right title', async () => {
+    await goToCarsTab()
+    fireEvent.click(screen.getByRole('button', { name: /add car/i }))
+    expect(screen.getByRole('heading', { name: /add new car/i })).toBeInTheDocument()
+  })
+
+  test('Cancel closes the modal without saving', async () => {
+    await goToCarsTab()
+    fireEvent.click(screen.getByRole('button', { name: /add car/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }))
+    expect(screen.queryByRole('heading', { name: /add new car/i })).not.toBeInTheDocument()
+    expect(createAdminCar).not.toHaveBeenCalled()
+  })
+
+  test('the modal close (X) button also closes it', async () => {
+    await goToCarsTab()
+    fireEvent.click(screen.getByRole('button', { name: /add car/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^close$/i }))
+    expect(screen.queryByRole('heading', { name: /add new car/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('Admin Locations tab — modal (shared Modal shell)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  async function goToLocationsTab() {
+    renderAdmin()
+    fireEvent.click(screen.getByRole('button', { name: /^locations$/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /add location/i })).toBeInTheDocument()
+    )
+  }
+
+  test('Add Location opens the modal with the right title', async () => {
+    await goToLocationsTab()
+    fireEvent.click(screen.getByRole('button', { name: /add location/i }))
+    expect(screen.getByRole('heading', { name: /^add location$/i })).toBeInTheDocument()
+  })
+
+  test('Cancel closes the modal without saving', async () => {
+    await goToLocationsTab()
+    fireEvent.click(screen.getByRole('button', { name: /add location/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }))
+    expect(screen.queryByRole('heading', { name: /^add location$/i })).not.toBeInTheDocument()
+    expect(createAdminLocation).not.toHaveBeenCalled()
   })
 })
