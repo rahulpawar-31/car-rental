@@ -4,23 +4,21 @@ import { Share2, Bookmark } from 'lucide-react'
 import { FaFacebookF, FaTwitter, FaYoutube, FaInstagram } from 'react-icons/fa'
 import { toast } from 'sonner'
 import { ARTICLES } from '../data/articles'
+import Button from '../components/ui/Button'
 
 function BlogImage({ src, alt, className }) {
   const [error, setError] = useState(false)
   if (error) {
     return (
-      <div className={`flex items-center justify-center bg-gray-100 text-gray-300 text-5xl ${className || ''}`}>
+      <div
+        className={`flex items-center justify-center bg-gray-100 text-gray-300 text-5xl ${className || ''}`}
+      >
         📰
       </div>
     )
   }
   return (
-    <img
-      src={src}
-      alt={alt || ''}
-      className={className || ''}
-      onError={() => setError(true)}
-    />
+    <img src={src} alt={alt || ''} className={className || ''} onError={() => setError(true)} />
   )
 }
 
@@ -39,7 +37,9 @@ export default function BlogPost() {
       <div className="text-center py-24">
         <div className="text-6xl mb-4">📰</div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Article not found</h1>
-        <Link to="/home" className="text-teal-600 underline text-sm">Go home</Link>
+        <Link to="/home" className="text-teal-600 underline text-sm">
+          Go home
+        </Link>
       </div>
     )
   }
@@ -55,7 +55,7 @@ export default function BlogPost() {
     }
   }
 
-  const handleCommentSubmit = (e) => {
+  const handleCommentSubmit = e => {
     e.preventDefault()
     toast.success('Your comment has been submitted for review!')
     setComment('')
@@ -64,22 +64,21 @@ export default function BlogPost() {
     setSaveInfo(false)
   }
 
-  const handleNewsletterSubmit = (e) => {
+  const handleNewsletterSubmit = e => {
     e.preventDefault()
     toast.success('Subscribed! Thank you.')
     setNewsletterEmail('')
   }
 
   const SOCIAL = [
-    { Icon: FaFacebookF, color: 'bg-blue-600' },
-    { Icon: FaTwitter,   color: 'bg-sky-500' },
-    { Icon: FaYoutube,   color: 'bg-red-600' },
-    { Icon: FaInstagram, color: 'bg-pink-600' },
+    { label: 'Facebook', Icon: FaFacebookF },
+    { label: 'Twitter', Icon: FaTwitter },
+    { label: 'YouTube', Icon: FaYoutube },
+    { label: 'Instagram', Icon: FaInstagram },
   ]
 
   return (
     <div className="bg-white min-h-screen">
-
       {/* Hero */}
       <div className="relative h-[420px] md:h-[540px] overflow-hidden bg-gray-900">
         <BlogImage
@@ -101,10 +100,8 @@ export default function BlogPost() {
       {/* Body */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex flex-col lg:flex-row gap-12">
-
           {/* ── Main Article ─────────────────────────────────────── */}
           <div className="flex-1 min-w-0">
-
             {article.content.map((section, i) => {
               if (section.type === 'text') {
                 return (
@@ -119,7 +116,7 @@ export default function BlogPost() {
                     <BlogImage
                       src={section.src}
                       alt={section.caption || ''}
-                      className="w-full object-cover rounded"
+                      className="w-full object-cover rounded-lg"
                     />
                     {section.caption && (
                       <figcaption className="text-center text-sm text-gray-400 mt-3 italic">
@@ -173,7 +170,7 @@ export default function BlogPost() {
             </div>
 
             {/* Author */}
-            <div className="mt-8 p-6 border border-gray-200 rounded-xl flex items-start gap-5">
+            <div className="mt-8 p-6 border border-gray-200 rounded-2xl flex items-start gap-5">
               <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200 shrink-0 ring-2 ring-teal-100">
                 <BlogImage
                   src={article.author.avatar}
@@ -182,7 +179,9 @@ export default function BlogPost() {
                 />
               </div>
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wider mb-1 font-semibold">Posted By</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wider mb-1 font-semibold">
+                  Posted By
+                </p>
                 <p className="font-bold text-gray-900 text-lg mb-2">{article.author.name}</p>
                 <p className="text-sm text-gray-500 leading-relaxed">{article.author.bio}</p>
               </div>
@@ -195,14 +194,16 @@ export default function BlogPost() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
                   {relatedArticles.map(rel => (
                     <Link key={rel.id} to={`/blog/${rel.id}`} className="group">
-                      <div className="h-40 bg-gray-200 overflow-hidden mb-3 rounded">
+                      <div className="h-40 bg-gray-200 overflow-hidden mb-3 rounded-lg">
                         <BlogImage
                           src={rel.image}
                           alt={rel.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       </div>
-                      <p className="text-xs text-gray-400 uppercase tracking-widest mb-1.5">{rel.date}</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-widest mb-1.5">
+                        {rel.date}
+                      </p>
                       <h3 className="text-sm font-bold text-gray-900 group-hover:text-teal-600 transition-colors leading-snug">
                         {rel.title}
                       </h3>
@@ -225,7 +226,7 @@ export default function BlogPost() {
                     onChange={e => setComment(e.target.value)}
                     required
                     rows={7}
-                    className="w-full border border-gray-300 rounded px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 resize-y text-gray-700 placeholder-gray-400"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 resize-y text-gray-700 placeholder-gray-400"
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -238,7 +239,7 @@ export default function BlogPost() {
                       value={commenterName}
                       onChange={e => setCommenterName(e.target.value)}
                       required
-                      className="w-full border border-gray-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
                     />
                   </div>
                   <div>
@@ -250,14 +251,16 @@ export default function BlogPost() {
                       value={commenterEmail}
                       onChange={e => setCommenterEmail(e.target.value)}
                       required
-                      className="w-full border border-gray-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Website</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Website
+                    </label>
                     <input
                       type="url"
-                      className="w-full border border-gray-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
                     />
                   </div>
                 </div>
@@ -273,12 +276,14 @@ export default function BlogPost() {
                     Save my name, email, and website in this browser for the next time I comment.
                   </label>
                 </div>
-                <button
+                <Button
                   type="submit"
-                  className="bg-teal-500 hover:bg-teal-600 text-white font-bold px-8 py-3 rounded transition-colors text-sm uppercase tracking-wide"
+                  variant="primary"
+                  size="lg"
+                  className="uppercase tracking-wide"
                 >
                   Post Reply
-                </button>
+                </Button>
               </form>
             </div>
           </div>
@@ -286,11 +291,12 @@ export default function BlogPost() {
           {/* ── Sidebar ───────────────────────────────────────────── */}
           <div className="w-full lg:w-72 xl:w-80 shrink-0">
             <div className="space-y-8 lg:sticky lg:top-24">
-
               {/* Newsletter */}
-              <div className="border border-gray-200 rounded-xl p-5">
+              <div className="border border-gray-200 rounded-2xl p-5">
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Newsletter</h3>
-                <p className="text-sm text-gray-500 mb-4">Don't miss a thing! Sign up to receive daily deals</p>
+                <p className="text-sm text-gray-500 mb-4">
+                  Don't miss a thing! Sign up to receive daily deals
+                </p>
                 <form onSubmit={handleNewsletterSubmit} className="space-y-2.5">
                   <input
                     type="email"
@@ -298,14 +304,15 @@ export default function BlogPost() {
                     onChange={e => setNewsletterEmail(e.target.value)}
                     required
                     placeholder="Your Email Address"
-                    className="w-full border border-gray-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 placeholder-gray-400"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 placeholder-gray-400"
                   />
-                  <button
+                  <Button
                     type="submit"
-                    className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-2.5 rounded text-sm transition-colors"
+                    variant="primary"
+                    className="w-full uppercase tracking-wider"
                   >
                     Subscribe
-                  </button>
+                  </Button>
                 </form>
               </div>
 
@@ -317,7 +324,7 @@ export default function BlogPost() {
                 <div className="space-y-5">
                   {recentArticles.map(a => (
                     <Link key={a.id} to={`/blog/${a.id}`} className="flex gap-3 group">
-                      <div className="w-16 h-14 bg-gray-200 rounded overflow-hidden shrink-0">
+                      <div className="w-16 h-14 bg-gray-200 rounded-lg overflow-hidden shrink-0">
                         <BlogImage
                           src={a.image}
                           alt={a.title}
@@ -341,19 +348,19 @@ export default function BlogPost() {
                   Connect with Us
                 </h3>
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  {SOCIAL.map(({ Icon, color }, i) => (
+                  {SOCIAL.map(({ label, Icon }) => (
                     <a
-                      key={i}
+                      key={label}
                       href="#"
                       onClick={e => e.preventDefault()}
-                      className={`w-9 h-9 rounded-full ${color} flex items-center justify-center text-white hover:opacity-80 transition-opacity`}
+                      aria-label={label}
+                      className="w-9 h-9 rounded-full border border-gray-200 text-gray-500 flex items-center justify-center hover:border-teal-400 hover:text-teal-500 transition-colors"
                     >
                       <Icon size={13} />
                     </a>
                   ))}
                 </div>
               </div>
-
             </div>
           </div>
         </div>
