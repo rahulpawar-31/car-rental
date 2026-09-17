@@ -4,12 +4,15 @@ import { CheckCircle, Calendar, MapPin, Car, CreditCard, ArrowRight } from 'luci
 import { getBookingById } from '../api/bookings'
 import Spinner from '../components/ui/Spinner'
 
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
-const fmt     = (n) => (n ?? 0).toLocaleString('en-IN')
+const fmtDate = d =>
+  d
+    ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—'
+const fmt = n => (n ?? 0).toLocaleString('en-IN')
 
 export default function BookingConfirmation() {
   const { bookingId } = useParams()
-  const navigate      = useNavigate()
+  const navigate = useNavigate()
   const [booking, setBooking] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -20,9 +23,12 @@ export default function BookingConfirmation() {
       .finally(() => setLoading(false))
   }, [bookingId, navigate])
 
-  if (loading) return (
-    <div className="flex justify-center items-center h-64"><Spinner size="lg" /></div>
-  )
+  if (loading)
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spinner size="lg" />
+      </div>
+    )
   if (!booking) return null
 
   const car = booking.car
@@ -36,7 +42,8 @@ export default function BookingConfirmation() {
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Booking Confirmed!</h1>
         <p className="text-gray-500">
-          Your booking has been confirmed and payment received. We&apos;ll send details to your email.
+          Your booking has been confirmed and payment received. We&apos;ll send details to your
+          email.
         </p>
         <div className="inline-block mt-3 px-4 py-1.5 bg-gray-100 rounded-full">
           <span className="text-xs text-gray-500 font-medium">Booking No: </span>
@@ -49,14 +56,19 @@ export default function BookingConfirmation() {
         {/* Car */}
         <div className="flex items-center gap-4 p-5 border-b border-gray-100">
           <div className="w-20 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
-            {car?.images?.[0]?.url
-              ? <img src={car.images[0].url} alt="" className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-2xl">🚗</div>
-            }
+            {car?.images?.[0]?.url ? (
+              <img src={car.images[0].url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-2xl">🚗</div>
+            )}
           </div>
           <div className="flex-1">
-            <p className="font-bold text-gray-900">{car?.brand} {car?.model}</p>
-            <p className="text-sm text-gray-500 capitalize">{car?.type} · {car?.year}</p>
+            <p className="font-bold text-gray-900">
+              {car?.brand} {car?.model}
+            </p>
+            <p className="text-sm text-gray-500 capitalize">
+              {car?.type} · {car?.year}
+            </p>
           </div>
           <div className="text-right">
             <p className="text-xs text-gray-400">Total Paid</p>
@@ -73,16 +85,16 @@ export default function BookingConfirmation() {
               <p className="text-sm font-semibold text-gray-900">
                 {fmtDate(booking.pickupDate)} → {fmtDate(booking.dropDate)}
               </p>
-              <p className="text-xs text-gray-500">{booking.totalDays} day{booking.totalDays !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-gray-500">
+                {booking.totalDays} day{booking.totalDays !== 1 ? 's' : ''}
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-3 px-5 py-4">
             <MapPin className="w-4 h-4 text-teal-500 mt-0.5 shrink-0" />
             <div className="flex-1">
               <p className="text-xs text-gray-400 mb-0.5">Pickup Location</p>
-              <p className="text-sm font-semibold text-gray-900">
-                {booking.pickupLocation?.name}
-              </p>
+              <p className="text-sm font-semibold text-gray-900">{booking.pickupLocation?.name}</p>
               <p className="text-xs text-gray-500">{booking.pickupLocation?.city}</p>
             </div>
           </div>
@@ -92,7 +104,9 @@ export default function BookingConfirmation() {
               <p className="text-xs text-gray-400 mb-0.5">Payment Breakdown</p>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between text-gray-600">
-                  <span>₹{fmt(booking.pricePerDay)} × {booking.totalDays} days</span>
+                  <span>
+                    ₹{fmt(booking.pricePerDay)} × {booking.totalDays} days
+                  </span>
                   <span>₹{fmt(booking.baseAmount)}</span>
                 </div>
                 {booking.discountAmount > 0 && (
@@ -116,15 +130,27 @@ export default function BookingConfirmation() {
       </div>
 
       {/* What's next */}
-      <div className="bg-teal-50 border border-teal-100 rounded-xl p-5 mb-8">
+      <div className="bg-teal-50 border border-teal-100 rounded-2xl p-5 mb-8">
         <h3 className="font-semibold text-teal-800 mb-3 flex items-center gap-2">
           <Car className="w-4 h-4" /> What happens next?
         </h3>
         <ol className="space-y-2 text-sm text-teal-700">
-          <li className="flex items-start gap-2"><span className="font-bold shrink-0">1.</span> You&apos;ll receive a confirmation email with your booking details.</li>
-          <li className="flex items-start gap-2"><span className="font-bold shrink-0">2.</span> Bring a valid driver&apos;s licence and ID proof to the pickup location.</li>
-          <li className="flex items-start gap-2"><span className="font-bold shrink-0">3.</span> Arrive at the pickup point on your scheduled date and time.</li>
-          <li className="flex items-start gap-2"><span className="font-bold shrink-0">4.</span> The security deposit will be collected at the time of pickup.</li>
+          <li className="flex items-start gap-2">
+            <span className="font-bold shrink-0">1.</span> You&apos;ll receive a confirmation email
+            with your booking details.
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="font-bold shrink-0">2.</span> Bring a valid driver&apos;s licence and
+            ID proof to the pickup location.
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="font-bold shrink-0">3.</span> Arrive at the pickup point on your
+            scheduled date and time.
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="font-bold shrink-0">4.</span> The security deposit will be collected at
+            the time of pickup.
+          </li>
         </ol>
       </div>
 
