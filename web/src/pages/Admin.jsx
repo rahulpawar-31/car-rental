@@ -106,6 +106,7 @@ function Pagination({ page, pages, onChange }) {
       <button
         disabled={page === 1}
         onClick={() => onChange(page - 1)}
+        aria-label="Previous page"
         className="p-1.5 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
       >
         <ChevronLeft className="w-4 h-4" />
@@ -116,6 +117,7 @@ function Pagination({ page, pages, onChange }) {
       <button
         disabled={page === pages}
         onClick={() => onChange(page + 1)}
+        aria-label="Next page"
         className="p-1.5 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
       >
         <ChevronRight className="w-4 h-4" />
@@ -541,6 +543,7 @@ function UsersTab() {
     errorMessage: 'Failed to load users',
   })
   const [toggling, setToggling] = useState(null)
+  const [confirmTarget, setConfirmTarget] = useState(null)
 
   const handleToggle = async id => {
     setToggling(id)
@@ -555,8 +558,28 @@ function UsersTab() {
     }
   }
 
+  const requestToggle = u => {
+    if (u.isActive) {
+      setConfirmTarget(u)
+    } else {
+      handleToggle(u._id)
+    }
+  }
+
   return (
     <div>
+      {confirmTarget && (
+        <ConfirmModal
+          message={`Deactivate ${confirmTarget.name}? They won't be able to sign in until reactivated.`}
+          confirmLabel="Yes, deactivate"
+          onConfirm={() => {
+            const id = confirmTarget._id
+            setConfirmTarget(null)
+            handleToggle(id)
+          }}
+          onCancel={() => setConfirmTarget(null)}
+        />
+      )}
       <div className="flex items-center gap-3 mb-5">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -564,7 +587,7 @@ function UsersTab() {
             value={filters.search}
             onChange={e => setFilter('search', e.target.value)}
             placeholder="Search name or email..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
           />
         </div>
         <span className="text-sm text-gray-500">{pagination.total ?? 0} users</span>
@@ -575,7 +598,7 @@ function UsersTab() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -591,7 +614,7 @@ function UsersTab() {
                 <tr key={u._id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-xs shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-semibold text-xs shrink-0">
                         {u.name?.[0]?.toUpperCase()}
                       </div>
                       <div>
@@ -603,7 +626,7 @@ function UsersTab() {
                   <td className="px-4 py-3 text-gray-600">{u.phone || '—'}</td>
                   <td className="px-4 py-3">
                     <span
-                      className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${u.role === 'admin' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-600'}`}
+                      className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${u.role === 'admin' ? 'bg-teal-50 text-teal-700' : 'bg-gray-100 text-gray-600'}`}
                     >
                       {u.role}
                     </span>
@@ -619,7 +642,7 @@ function UsersTab() {
                   <td className="px-4 py-3">
                     {u.role !== 'admin' && (
                       <button
-                        onClick={() => handleToggle(u._id)}
+                        onClick={() => requestToggle(u)}
                         disabled={toggling === u._id}
                         className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900 disabled:opacity-50"
                       >
@@ -688,7 +711,7 @@ function BookingsTab() {
             value={filters.search}
             onChange={e => setFilter('search', e.target.value)}
             placeholder="Search booking# or customer..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400"
           />
         </div>
         <select
@@ -711,7 +734,7 @@ function BookingsTab() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[700px]">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -756,7 +779,7 @@ function BookingsTab() {
                         <select
                           value={b.status}
                           onChange={e => handleStatusChange(b._id, e.target.value)}
-                          className="text-xs border border-gray-200 rounded px-2 py-1 bg-white"
+                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white"
                         >
                           {BOOKING_STATUSES.map(s => (
                             <option key={s} value={s} className="capitalize">
@@ -821,7 +844,7 @@ function ReviewsTab() {
             <button
               key={i}
               onClick={() => setFilter('status', f)}
-              className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${filters.status === f ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+              className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${filters.status === f ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
             >
               {labels[i]}
             </button>
@@ -838,11 +861,11 @@ function ReviewsTab() {
       ) : (
         <div className="space-y-4">
           {reviews.map(r => (
-            <div key={r._id} className="bg-white border border-gray-200 rounded-xl p-5">
+            <div key={r._id} className="bg-white border border-gray-200 rounded-2xl p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-semibold shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-semibold shrink-0">
                       {r.user?.name?.[0]?.toUpperCase()}
                     </div>
                     <div>
@@ -2252,7 +2275,7 @@ const PAY_STATUS_COLOR = {
   succeeded: 'bg-green-50 text-green-700',
   pending: 'bg-amber-50 text-amber-700',
   failed: 'bg-red-50 text-red-700',
-  refunded: 'bg-blue-50 text-blue-700',
+  refunded: 'bg-teal-50 text-teal-700',
 }
 
 function PaymentsTab() {
@@ -2317,7 +2340,7 @@ function PaymentsTab() {
             color: 'text-green-600',
           },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white border border-gray-200 rounded-xl p-4">
+          <div key={label} className="bg-white border border-gray-200 rounded-2xl p-4">
             <p className="text-xs text-gray-500 mb-1">{label}</p>
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
           </div>
@@ -2329,7 +2352,7 @@ function PaymentsTab() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
