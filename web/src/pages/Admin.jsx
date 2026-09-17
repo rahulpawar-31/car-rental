@@ -67,18 +67,18 @@ const fmtDate = d =>
 const BOOKING_STATUSES = ['pending', 'confirmed', 'active', 'completed', 'cancelled', 'no-show']
 const STATUS_COLOR = {
   pending: 'bg-amber-50 text-amber-700',
-  confirmed: 'bg-blue-50 text-blue-700',
+  confirmed: 'bg-teal-50 text-teal-700',
   active: 'bg-green-50 text-green-700',
   completed: 'bg-gray-100 text-gray-700',
   cancelled: 'bg-red-50 text-red-700',
-  'no-show': 'bg-orange-50 text-orange-700',
+  'no-show': 'bg-red-50 text-red-700',
 }
 
 // ─── sub-components ──────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon: Icon, color, growth }) {
   const up = parseFloat(growth) >= 0
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
+    <div className="bg-white border border-gray-200 rounded-2xl p-5">
       <div className="flex items-start justify-between mb-3">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
           <Icon className="w-5 h-5" />
@@ -154,7 +154,7 @@ function DashboardTab() {
           value={fmt(stats.totalUsers)}
           sub={`+${stats.newUsersThisMonth} this month`}
           icon={Users}
-          color="text-blue-600 bg-blue-50"
+          color="text-teal-600 bg-teal-50"
         />
         <StatCard
           label="Total Cars"
@@ -168,7 +168,7 @@ function DashboardTab() {
           value={fmt(stats.totalBookings)}
           sub={`${stats.bookingsThisMonth} this month`}
           icon={CalendarCheck}
-          color="text-purple-600 bg-purple-50"
+          color="text-teal-600 bg-teal-50"
           growth={stats.bookingGrowth}
         />
         <StatCard
@@ -186,7 +186,7 @@ function DashboardTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Bookings by status */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Bookings by Status</h3>
           <div className="space-y-2">
             {bookingsByStatus.map(({ _id, count }) => (
@@ -209,7 +209,7 @@ function DashboardTab() {
         </div>
 
         {/* Recent bookings */}
-        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-5">
+        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Recent Bookings</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -288,7 +288,7 @@ function RevenueChart({ data }) {
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(f * maxVal))
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
+    <div className="bg-white border border-gray-200 rounded-2xl p-5">
       <h3 className="font-semibold text-gray-900 mb-4">Monthly Revenue (₹)</h3>
       <div className="overflow-x-auto">
         <svg width={chartW} height={H + PAD_B + 8} className="min-w-full">
@@ -425,7 +425,7 @@ function AvailabilityTab() {
             color: 'text-amber-600 bg-amber-50',
           },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white border border-gray-200 rounded-xl p-4 text-center">
+          <div key={label} className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
             <p className={`text-2xl font-bold ${color.split(' ')[0]}`}>{value}</p>
             <p className="text-xs text-gray-500 mt-1">{label}</p>
           </div>
@@ -462,7 +462,7 @@ function AvailabilityTab() {
           return (
             <div
               key={car._id}
-              className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow"
+              className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition-shadow"
             >
               <div className="h-36 bg-gray-100 relative">
                 {car.images?.[0]?.url ? (
@@ -497,7 +497,7 @@ function AvailabilityTab() {
                     <span className="text-xs font-normal text-gray-400">/day</span>
                   </p>
                   {upcoming > 0 ? (
-                    <span className="text-xs bg-blue-50 text-blue-700 font-semibold px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-amber-50 text-amber-700 font-semibold px-2 py-0.5 rounded-full">
                       {upcoming} booking{upcoming !== 1 ? 's' : ''} ahead
                     </span>
                   ) : (
@@ -2414,7 +2414,7 @@ export default function Admin() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Sidebar */}
         <aside className="lg:w-52 shrink-0">
-          <div className="bg-white border border-gray-200 rounded-xl p-2">
+          <div className="bg-white border border-gray-200 rounded-2xl p-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 pt-2 pb-1">
               Admin Panel
             </p>
