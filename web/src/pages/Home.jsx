@@ -1,16 +1,40 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ChevronRight, ChevronDown, Shield, Star, Headphones, Phone, Quote } from 'lucide-react'
+import {
+  ChevronRight,
+  ChevronDown,
+  MapPin,
+  Search,
+  Shield,
+  Star,
+  Headphones,
+  Phone,
+  Quote,
+} from 'lucide-react'
 import { getCars, getFeaturedCars, getCarFilters } from '../api/cars'
+import { getLocations } from '../api/locations'
 import Spinner from '../components/ui/Spinner'
 import CarCard from '../components/ui/CarCard'
+import Button from '../components/ui/Button'
 import useAuthStore from '../store/authStore'
 import { ARTICLES } from '../data/articles'
 
 const WHY_CHOOSE = [
-  { icon: Shield, title: 'Variety of Car Brands', desc: 'Choose from an extensive range of top car brands to match your style and budget.' },
-  { icon: Star, title: 'Best Rate Guarantee', desc: 'We offer the most competitive rates in the market with no hidden charges.' },
-  { icon: Headphones, title: 'Awesome Customer Support', desc: 'Our dedicated team is available around the clock to assist you anytime.' },
+  {
+    icon: Shield,
+    title: 'Variety of Car Brands',
+    desc: 'Choose from an extensive range of top car brands to match your style and budget.',
+  },
+  {
+    icon: Star,
+    title: 'Best Rate Guarantee',
+    desc: 'We offer the most competitive rates in the market with no hidden charges.',
+  },
+  {
+    icon: Headphones,
+    title: 'Awesome Customer Support',
+    desc: 'Our dedicated team is available around the clock to assist you anytime.',
+  },
 ]
 
 const TESTIMONIALS = [
@@ -65,13 +89,12 @@ const TESTIMONIALS = [
 ]
 
 const SORT_OPTIONS = [
-  { value: 'price-asc',   label: 'Price Low to High' },
-  { value: 'price-desc',  label: 'Price High to Low' },
-  { value: 'model-asc',   label: 'Sort By Model' },
+  { value: 'price-asc', label: 'Price Low to High' },
+  { value: 'price-desc', label: 'Price High to Low' },
+  { value: 'model-asc', label: 'Sort By Model' },
   { value: 'rating-desc', label: 'Sort By Review Score' },
-  { value: '-createdAt',  label: 'Newest First' },
+  { value: '-createdAt', label: 'Newest First' },
 ]
-
 
 function ArticleImage({ src, alt }) {
   const [error, setError] = useState(false)
@@ -93,9 +116,17 @@ function ArticleImage({ src, alt }) {
 }
 
 const TYPE_EMOJI = {
-  sedan: '🚗', suv: '🚙', hatchback: '🚘', coupe: '🏎️',
-  luxury: '🏎️', convertible: '🚗', van: '🚐', truck: '🚚', mpv: '🚐',
-  electric: '⚡', hybrid: '🌿',
+  sedan: '🚗',
+  suv: '🚙',
+  hatchback: '🚘',
+  coupe: '🏎️',
+  luxury: '🏎️',
+  convertible: '🚗',
+  van: '🚐',
+  truck: '🚚',
+  mpv: '🚐',
+  electric: '⚡',
+  hybrid: '🌿',
 }
 
 export default function Home() {
@@ -104,19 +135,23 @@ export default function Home() {
   const [typeCards, setTypeCards] = useState([])
   const [brands, setBrands] = useState([])
   const [carTypes, setCarTypes] = useState([])
+  const [locations, setLocations] = useState([])
   const [loading, setLoading] = useState(true)
   const [brand, setBrand] = useState('')
   const [type, setType] = useState('')
   const [sort, setSort] = useState('price-asc')
+  const [pickupLocation, setPickupLocation] = useState('')
+  const [dropLocation, setDropLocation] = useState('')
   const navigate = useNavigate()
   const { user } = useAuthStore()
 
   useEffect(() => {
-    Promise.all([getFeaturedCars(), getCars({ limit: 100 }), getCarFilters()])
-      .then(([featRes, carsRes, filterRes]) => {
+    Promise.all([getFeaturedCars(), getCars({ limit: 100 }), getCarFilters(), getLocations()])
+      .then(([featRes, carsRes, filterRes, locationsRes]) => {
         setFeaturedCars(featRes.data.data.cars)
         setBrands(filterRes.data.data.brands || [])
         setCarTypes(filterRes.data.data.types || [])
+        setLocations(locationsRes.data.data.locations || [])
 
         const allCars = carsRes.data.data.cars
 
@@ -148,81 +183,163 @@ export default function Home() {
       .finally(() => setLoading(false))
   }, [])
 
-  const handleSearch = (e) => {
+  const handleSearch = e => {
     e.preventDefault()
     const params = new URLSearchParams()
+    // Falls back to dropLocation when only a drop-off branch is chosen --
+    // matches Locations.jsx's handleFindCars, which is the other place in
+    // the app that turns a pickup/drop pair into this same `location` param.
+    const branchId = pickupLocation || dropLocation
+    if (branchId) params.set('location', branchId)
     if (brand) params.set('brand', brand)
     if (type) params.set('type', type)
     if (sort) params.set('sort', sort)
-    navigate(`/cars?${params.toString()}`)
+
+    const pickupLocationObj = locations.find(l => l._id === pickupLocation) || null
+    const dropLocationObj = locations.find(l => l._id === dropLocation) || null
+
+    navigate(`/cars?${params.toString()}`, {
+      state:
+        pickupLocationObj || dropLocationObj
+          ? { pickupLocation: pickupLocationObj, dropLocation: dropLocationObj }
+          : undefined,
+    })
   }
 
   return (
     <div className="bg-white">
-
       {/* ── Hero ─────────────────────────────────────────────────── */}
-      <section className="relative min-h-[580px] md:min-h-[640px] flex items-center justify-center text-white overflow-hidden">
+      <section className="relative min-h-[580px] md:min-h-[680px] flex items-center justify-center text-white overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{ backgroundImage: 'url(/heroes/home.jpg)' }}
         />
         <div className="absolute inset-0 bg-black/60" />
 
-        <div className="relative z-10 text-center px-4 w-full max-w-5xl mx-auto">
+        <div className="relative z-10 text-center px-4 w-full max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-extrabold mb-3 drop-shadow-lg leading-tight tracking-tight">
             Find Best Car &amp; Limousine
           </h1>
-          <p className="text-gray-300 text-base md:text-lg mb-10 drop-shadow italic">
+          <p className="text-gray-300 text-base md:text-lg mb-8 drop-shadow italic">
             From as low as ₹499 per day with limited time offer discounts
           </p>
 
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-0 shadow-2xl rounded-md overflow-hidden">
-            {/* Brand */}
-            <div className="relative flex-1">
-              <select
-                value={brand}
-                onChange={e => setBrand(e.target.value)}
-                className="w-full bg-white text-gray-600 text-sm px-4 py-4 outline-none appearance-none cursor-pointer border-r border-gray-200 h-full"
-              >
-                <option value="">Any Brand</option>
-                {brands.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <form
+            onSubmit={handleSearch}
+            className="bg-white rounded-2xl shadow-2xl p-4 sm:p-5 text-left"
+          >
+            {/* Pickup / Drop-off Location */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label
+                  htmlFor="home-pickup-location"
+                  className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5"
+                >
+                  Pickup Location
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-600 pointer-events-none" />
+                  <select
+                    id="home-pickup-location"
+                    value={pickupLocation}
+                    onChange={e => setPickupLocation(e.target.value)}
+                    className="w-full bg-white border border-gray-200 rounded-lg text-sm text-gray-700 pl-9 pr-8 py-2.5 outline-none appearance-none cursor-pointer focus:border-teal-400 transition-colors"
+                  >
+                    <option value="">Any Location</option>
+                    {locations
+                      .filter(l => l.isPickupAvailable !== false)
+                      .map(l => (
+                        <option key={l._id} value={l._id}>
+                          {l.name}, {l.city}
+                        </option>
+                      ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="home-drop-location"
+                  className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5"
+                >
+                  Drop-off Location
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-600 pointer-events-none" />
+                  <select
+                    id="home-drop-location"
+                    value={dropLocation}
+                    onChange={e => setDropLocation(e.target.value)}
+                    className="w-full bg-white border border-gray-200 rounded-lg text-sm text-gray-700 pl-9 pr-8 py-2.5 outline-none appearance-none cursor-pointer focus:border-teal-400 transition-colors"
+                  >
+                    <option value="">Same as pickup</option>
+                    {locations
+                      .filter(l => l.isDropAvailable !== false)
+                      .map(l => (
+                        <option key={l._id} value={l._id}>
+                          {l.name}, {l.city}
+                        </option>
+                      ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
             </div>
 
-            {/* Type */}
-            <div className="relative flex-1">
-              <select
-                value={type}
-                onChange={e => setType(e.target.value)}
-                className="w-full bg-white text-gray-600 text-sm px-4 py-4 outline-none appearance-none cursor-pointer border-r border-gray-200 h-full"
-              >
-                <option value="">Any Type</option>
-                {carTypes.map(t => (
-                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
+            {/* Brand / Type / Sort / Search */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-3 border-t border-gray-100">
+              <div className="relative flex-1">
+                <select
+                  value={brand}
+                  onChange={e => setBrand(e.target.value)}
+                  className="w-full bg-white border border-gray-200 rounded-lg text-sm text-gray-600 px-4 py-2.5 outline-none appearance-none cursor-pointer focus:border-teal-400 transition-colors"
+                >
+                  <option value="">Any Brand</option>
+                  {brands.map(b => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
 
-            {/* Sort */}
-            <div className="relative flex-1">
-              <select
-                value={sort}
-                onChange={e => setSort(e.target.value)}
-                className="w-full bg-white text-gray-600 text-sm px-4 py-4 outline-none appearance-none cursor-pointer h-full"
-              >
-                {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
+              <div className="relative flex-1">
+                <select
+                  value={type}
+                  onChange={e => setType(e.target.value)}
+                  className="w-full bg-white border border-gray-200 rounded-lg text-sm text-gray-600 px-4 py-2.5 outline-none appearance-none cursor-pointer focus:border-teal-400 transition-colors"
+                >
+                  <option value="">Any Type</option>
+                  {carTypes.map(t => (
+                    <option key={t} value={t}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
 
-            <button
-              type="submit"
-              className="bg-teal-500 hover:bg-teal-600 text-white font-bold px-10 py-4 transition-colors text-sm uppercase tracking-widest shrink-0"
-            >
-              Search
-            </button>
+              <div className="relative flex-1 sm:max-w-[200px]">
+                <select
+                  value={sort}
+                  onChange={e => setSort(e.target.value)}
+                  className="w-full bg-white border border-gray-200 rounded-lg text-sm text-gray-600 px-4 py-2.5 outline-none appearance-none cursor-pointer focus:border-teal-400 transition-colors"
+                >
+                  {SORT_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+
+              <Button type="submit" size="lg" className="uppercase tracking-widest shrink-0">
+                <Search className="w-4 h-4" /> Search
+              </Button>
+            </div>
           </form>
         </div>
       </section>
@@ -235,13 +352,18 @@ export default function Home() {
               <h2 className="text-3xl font-bold text-gray-900 mb-3">Featured Cars</h2>
               <p className="text-gray-500">Hand-picked vehicles from our fleet, ready to book</p>
             </div>
-            <Link to="/cars" className="hidden sm:flex items-center gap-1 text-teal-600 font-semibold text-sm hover:text-teal-700 shrink-0">
+            <Link
+              to="/cars"
+              className="hidden sm:flex items-center gap-1 text-teal-600 font-semibold text-sm hover:text-teal-700 shrink-0"
+            >
               View All Cars <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {featuredCars.map(car => <CarCard key={car._id} car={car} />)}
+            {featuredCars.map(car => (
+              <CarCard key={car._id} car={car} />
+            ))}
           </div>
         </section>
       )}
@@ -253,19 +375,22 @@ export default function Home() {
             First Class Car Rental &amp; Limousine Services
           </h2>
           <p className="text-gray-500">
-            We offer professional car rental &amp; limousine services in our range of high-end vehicles
+            We offer professional car rental &amp; limousine services in our range of high-end
+            vehicles
           </p>
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12"><Spinner size="lg" /></div>
+          <div className="flex justify-center py-12">
+            <Spinner size="lg" />
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {brandCards.map(([brandName, imgUrl]) => (
               <button
                 key={brandName}
                 onClick={() => navigate(`/cars?brand=${encodeURIComponent(brandName)}`)}
-                className="relative h-56 rounded-xl overflow-hidden group bg-gray-800 text-left"
+                className="relative h-56 rounded-2xl overflow-hidden group bg-gray-800 text-left"
               >
                 {imgUrl ? (
                   <img
@@ -295,19 +420,22 @@ export default function Home() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-3">Find Car by Type</h2>
             <p className="text-gray-500">
-              We offer professional car rental &amp; limousine services in our range of high-end vehicles
+              We offer professional car rental &amp; limousine services in our range of high-end
+              vehicles
             </p>
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-12"><Spinner size="lg" /></div>
+            <div className="flex justify-center py-12">
+              <Spinner size="lg" />
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {typeCards.map(([typeName, imgUrl]) => (
                 <button
                   key={typeName}
                   onClick={() => navigate(`/cars?type=${typeName}`)}
-                  className="relative h-56 rounded-xl overflow-hidden group bg-gray-800 text-left"
+                  className="relative h-56 rounded-2xl overflow-hidden group bg-gray-800 text-left"
                 >
                   {imgUrl ? (
                     <img
@@ -333,43 +461,47 @@ export default function Home() {
       </section>
 
       {/* ── Fleet CTA ────────────────────────────────────────────── */}
-      <section className="relative py-32 text-white text-center overflow-hidden bg-[#0d0d1a]">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_50%,_#1a3a5c_0%,_#0d0d1a_70%)]" />
+      <section className="relative py-32 text-white text-center overflow-hidden bg-[#111111]">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_50%,_rgba(20,184,166,0.14)_0%,_transparent_70%)]" />
         <div className="relative z-10 max-w-2xl mx-auto px-4">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">Our Fleet, Your Fleet</h2>
           <p className="text-gray-400 mb-6 leading-relaxed">
-            We know the difference is in the details and that&apos;s why our car rental services, in the
-            tourism and business industry, stand out for their quality and good taste, to offer you a
-            unique experience
+            We know the difference is in the details and that&apos;s why our car rental services, in
+            the tourism and business industry, stand out for their quality and good taste, to offer
+            you a unique experience
           </p>
           <p className="text-2xl font-semibold text-teal-400 mb-8 flex items-center justify-center gap-2">
             <Phone className="w-5 h-5" />
             Call Now (91) 1800-000-000
           </p>
-          <button
+          <Button
+            variant="primary"
+            size="lg"
+            className="uppercase tracking-wider"
             onClick={() => navigate('/contact')}
-            className="bg-teal-500 hover:bg-teal-600 text-white font-bold px-10 py-3.5 rounded transition-colors text-sm uppercase tracking-wider"
           >
             Request a Quote
-          </button>
+          </Button>
         </div>
       </section>
 
       {/* ── Why Choose Us ────────────────────────────────────────── */}
-      <section className="py-20 bg-indigo-500">
+      <section className="py-20 bg-teal-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-white mb-3">Why Choose Us</h2>
-            <p className="text-indigo-200">Explore our first class limousine &amp; car rental services</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Why Choose Us</h2>
+            <p className="text-gray-500">
+              Explore our first class limousine &amp; car rental services
+            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {WHY_CHOOSE.map(({ icon: Icon, title, desc }) => (
               <div key={title} className="text-center">
-                <div className="w-16 h-16 rounded-full border-2 border-white/40 flex items-center justify-center mx-auto mb-5">
-                  <Icon className="w-7 h-7 text-white" />
+                <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mx-auto mb-5">
+                  <Icon className="w-7 h-7 text-teal-600" />
                 </div>
-                <h3 className="text-white font-bold text-lg mb-3">{title}</h3>
-                <p className="text-indigo-200 text-sm leading-relaxed">{desc}</p>
+                <h3 className="text-gray-900 font-bold text-lg mb-3">{title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>
@@ -386,13 +518,18 @@ export default function Home() {
               {[...Array(5)].map((_, i) => (
                 <Star key={i} className="w-5 h-5 fill-amber-400 text-amber-400" />
               ))}
-              <span className="ml-2 text-gray-600 font-semibold text-sm">4.8 / 5 &nbsp;·&nbsp; 2,400+ reviews</span>
+              <span className="ml-2 text-gray-600 font-semibold text-sm">
+                4.8 / 5 &nbsp;·&nbsp; 2,400+ reviews
+              </span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {TESTIMONIALS.map(({ name, location, rating, text, avatar, car }) => (
-              <div key={name} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col gap-4 hover:shadow-md transition-shadow">
+              <div
+                key={name}
+                className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col gap-4 hover:shadow-md transition-shadow"
+              >
                 <Quote className="w-8 h-8 text-teal-400 shrink-0" />
                 <p className="text-gray-600 text-sm leading-relaxed flex-1">{text}</p>
                 <div className="flex items-center gap-1 mt-1">
@@ -409,7 +546,9 @@ export default function Home() {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900 text-sm">{name}</p>
-                    <p className="text-xs text-gray-400">{location} &nbsp;·&nbsp; Rented {car}</p>
+                    <p className="text-xs text-gray-400">
+                      {location} &nbsp;·&nbsp; Rented {car}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -427,7 +566,11 @@ export default function Home() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {ARTICLES.map(article => (
-            <Link key={article.id} to={`/blog/${article.id}`} className="group border border-gray-100 rounded-xl overflow-hidden hover:shadow-lg transition-shadow block">
+            <Link
+              key={article.id}
+              to={`/blog/${article.id}`}
+              className="group border border-gray-100 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow block"
+            >
               <div className="h-52 bg-gray-200 overflow-hidden">
                 <ArticleImage src={article.image} alt={article.title} />
               </div>
@@ -456,18 +599,19 @@ export default function Home() {
               Ready to Hit the Road?
             </h2>
             <p className="text-teal-100 text-base md:text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-              Create a free account in under 2 minutes and unlock exclusive deals, instant bookings, and a seamless rental experience.
+              Create a free account in under 2 minutes and unlock exclusive deals, instant bookings,
+              and a seamless rental experience.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 to="/register"
-                className="inline-block bg-white text-teal-600 font-bold px-10 py-4 rounded-xl hover:bg-teal-50 transition-colors text-base shadow-lg"
+                className="inline-block bg-white text-teal-600 font-bold px-10 py-4 rounded-lg hover:bg-teal-50 transition-colors text-base shadow-lg"
               >
                 Create Free Account
               </Link>
               <Link
                 to="/login"
-                className="inline-block border-2 border-white text-white font-semibold px-10 py-4 rounded-xl hover:bg-white/10 transition-colors text-base"
+                className="inline-block border-2 border-white text-white font-semibold px-10 py-4 rounded-lg hover:bg-white/10 transition-colors text-base"
               >
                 Sign In
               </Link>
@@ -478,7 +622,6 @@ export default function Home() {
           </div>
         </section>
       )}
-
     </div>
   )
 }
