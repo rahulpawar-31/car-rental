@@ -55,6 +55,8 @@ import { getErrorMessage } from '../api/errors'
 import { useAdminList } from '../hooks/useAdminList'
 import Spinner from '../components/ui/Spinner'
 import ConfirmModal from '../components/ui/ConfirmModal'
+import Modal from '../components/ui/Modal'
+import Button from '../components/ui/Button'
 import { toast } from 'sonner'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -1649,12 +1651,9 @@ function CarsTab() {
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none"
           />
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-1.5 bg-teal-500 hover:bg-teal-600 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
-        >
+        <Button onClick={openCreate} variant="primary" size="md" className="gap-1.5">
           <Plus className="w-4 h-4" /> Add Car
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -1662,7 +1661,7 @@ function CarsTab() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -1681,7 +1680,7 @@ function CarsTab() {
                 <tr key={car._id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-8 bg-gray-100 rounded overflow-hidden shrink-0">
+                      <div className="w-12 h-8 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                         {car.images?.[0]?.url ? (
                           <img
                             src={car.images[0].url}
@@ -1725,13 +1724,15 @@ function CarsTab() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => openEdit(car)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        aria-label={`Edit ${car.brand} ${car.model}`}
+                        className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setDeleteTarget(car)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        aria-label={`Delete ${car.brand} ${car.model}`}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1753,251 +1754,249 @@ function CarsTab() {
 
       {/* Car Modal */}
       {modal !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 sticky top-0 bg-white">
-              <h2 className="font-bold text-gray-900">
-                {modal === 'create' ? 'Add New Car' : 'Edit Car'}
-              </h2>
-              <button onClick={() => setModal(null)}>
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
+        <Modal
+          title={modal === 'create' ? 'Add New Car' : 'Edit Car'}
+          onClose={() => setModal(null)}
+          maxWidth="max-w-2xl"
+        >
+          <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                ['Brand', 'brand'],
+                ['Model', 'model'],
+              ].map(([label, key]) => (
+                <div key={key}>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                    {label}
+                  </label>
+                  <input
+                    required
+                    value={form[key]}
+                    onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400"
+                  />
+                </div>
+              ))}
             </div>
-            <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  ['Brand', 'brand'],
-                  ['Model', 'model'],
-                ].map(([label, key]) => (
-                  <div key={key}>
-                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                      {label}
-                    </label>
-                    <input
-                      required
-                      value={form[key]}
-                      onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400"
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                    Year
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={form.year}
-                    onChange={e => setForm(p => ({ ...p, year: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                    Seats
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={form.seats}
-                    onChange={e => setForm(p => ({ ...p, seats: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                    Price/Day (₹)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={form.pricePerDay}
-                    onChange={e => setForm(p => ({ ...p, pricePerDay: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                    Type
-                  </label>
-                  <select
-                    value={form.type}
-                    onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:border-teal-400"
-                  >
-                    {CAR_TYPES.map(t => (
-                      <option key={t} value={t} className="capitalize">
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                    Transmission
-                  </label>
-                  <select
-                    value={form.transmission}
-                    onChange={e => setForm(p => ({ ...p, transmission: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:border-teal-400"
-                  >
-                    {TRANSMISSIONS.map(t => (
-                      <option key={t} value={t} className="capitalize">
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                    Fuel Type
-                  </label>
-                  <select
-                    value={form.fuelType}
-                    onChange={e => setForm(p => ({ ...p, fuelType: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:border-teal-400"
-                  >
-                    {FUEL_TYPES.map(t => (
-                      <option key={t} value={t} className="capitalize">
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                    Location
-                  </label>
-                  <select
-                    value={form.location}
-                    onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:border-teal-400"
-                  >
-                    <option value="">— No location —</option>
-                    {locs.map(l => (
-                      <option key={l._id} value={l._id}>
-                        {l.name}, {l.city}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                    Security Deposit (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={form.securityDeposit}
-                    onChange={e => setForm(p => ({ ...p, securityDeposit: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400"
-                  />
-                </div>
-              </div>
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                  Car Image
+                  Year
                 </label>
                 <input
-                  ref={imgInputRef}
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png,image/webp"
-                  className="hidden"
-                  onChange={handleImageFileChange}
+                  type="number"
+                  required
+                  value={form.year}
+                  onChange={e => setForm(p => ({ ...p, year: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400"
                 />
-                {imagePreview ? (
-                  <div className="relative mb-2 w-full h-36 rounded-lg overflow-hidden border border-gray-200">
-                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        resetImageState()
-                        if (imgInputRef.current) imgInputRef.current.value = ''
-                      }}
-                      className="absolute top-2 right-2 bg-black/60 text-white w-6 h-6 rounded-full flex items-center justify-center hover:bg-black/80"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ) : null}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => imgInputRef.current?.click()}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 border border-gray-200 rounded-lg hover:border-teal-400 hover:text-teal-600 transition-colors"
-                  >
-                    <Upload className="w-3.5 h-3.5" /> Upload file
-                  </button>
-                  <div className="flex-1 flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 focus-within:border-teal-400 transition-colors">
-                    <LinkIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    <input
-                      value={form.imageUrl}
-                      onChange={e => setForm(p => ({ ...p, imageUrl: e.target.value }))}
-                      placeholder="Or paste image URL..."
-                      className="flex-1 text-xs outline-none text-gray-700 bg-transparent"
-                    />
-                  </div>
-                </div>
-                {imageFile && (
-                  <p className="text-xs text-teal-600 mt-1">File selected: {imageFile.name}</p>
-                )}
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                  Description
+                  Seats
                 </label>
-                <textarea
-                  rows={3}
-                  value={form.description}
-                  onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400 resize-none"
+                <input
+                  type="number"
+                  required
+                  value={form.seats}
+                  onChange={e => setForm(p => ({ ...p, seats: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400"
                 />
               </div>
-              <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.isAvailable}
-                    onChange={e => setForm(p => ({ ...p, isAvailable: e.target.checked }))}
-                    className="rounded"
-                  />
-                  Available
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                  Price/Day (₹)
                 </label>
-                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.isFeatured}
-                    onChange={e => setForm(p => ({ ...p, isFeatured: e.target.checked }))}
-                    className="rounded"
-                  />
-                  Featured
-                </label>
+                <input
+                  type="number"
+                  required
+                  value={form.pricePerDay}
+                  onChange={e => setForm(p => ({ ...p, pricePerDay: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400"
+                />
               </div>
-              <div className="flex gap-3 pt-2">
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                  Type
+                </label>
+                <select
+                  value={form.type}
+                  onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:border-teal-400"
+                >
+                  {CAR_TYPES.map(t => (
+                    <option key={t} value={t} className="capitalize">
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                  Transmission
+                </label>
+                <select
+                  value={form.transmission}
+                  onChange={e => setForm(p => ({ ...p, transmission: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:border-teal-400"
+                >
+                  {TRANSMISSIONS.map(t => (
+                    <option key={t} value={t} className="capitalize">
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                  Fuel Type
+                </label>
+                <select
+                  value={form.fuelType}
+                  onChange={e => setForm(p => ({ ...p, fuelType: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:border-teal-400"
+                >
+                  {FUEL_TYPES.map(t => (
+                    <option key={t} value={t} className="capitalize">
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                  Location
+                </label>
+                <select
+                  value={form.location}
+                  onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:border-teal-400"
+                >
+                  <option value="">— No location —</option>
+                  {locs.map(l => (
+                    <option key={l._id} value={l._id}>
+                      {l.name}, {l.city}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                  Security Deposit (₹)
+                </label>
+                <input
+                  type="number"
+                  value={form.securityDeposit}
+                  onChange={e => setForm(p => ({ ...p, securityDeposit: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                Car Image
+              </label>
+              <input
+                ref={imgInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                className="hidden"
+                onChange={handleImageFileChange}
+              />
+              {imagePreview ? (
+                <div className="relative mb-2 w-full h-36 rounded-lg overflow-hidden border border-gray-200">
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetImageState()
+                      if (imgInputRef.current) imgInputRef.current.value = ''
+                    }}
+                    className="absolute top-2 right-2 bg-black/60 text-white w-6 h-6 rounded-full flex items-center justify-center hover:bg-black/80"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : null}
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setModal(null)}
-                  className="flex-1 border border-gray-200 text-gray-700 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={() => imgInputRef.current?.click()}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 border border-gray-200 rounded-lg hover:border-teal-400 hover:text-teal-600 transition-colors"
                 >
-                  Cancel
+                  <Upload className="w-3.5 h-3.5" /> Upload file
                 </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-lg transition-colors"
-                >
-                  {saving ? 'Saving...' : modal === 'create' ? 'Create Car' : 'Save Changes'}
-                </button>
+                <div className="flex-1 flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 focus-within:border-teal-400 transition-colors">
+                  <LinkIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <input
+                    value={form.imageUrl}
+                    onChange={e => setForm(p => ({ ...p, imageUrl: e.target.value }))}
+                    placeholder="Or paste image URL..."
+                    className="flex-1 text-xs outline-none text-gray-700 bg-transparent"
+                  />
+                </div>
               </div>
-            </form>
-          </div>
-        </div>
+              {imageFile && (
+                <p className="text-xs text-teal-600 mt-1">File selected: {imageFile.name}</p>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                Description
+              </label>
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-400 resize-none"
+              />
+            </div>
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.isAvailable}
+                  onChange={e => setForm(p => ({ ...p, isAvailable: e.target.checked }))}
+                  className="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-400"
+                />
+                Available
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.isFeatured}
+                  onChange={e => setForm(p => ({ ...p, isFeatured: e.target.checked }))}
+                  className="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-400"
+                />
+                Featured
+              </label>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={() => setModal(null)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                disabled={saving}
+                className="flex-1"
+              >
+                {saving ? 'Saving...' : modal === 'create' ? 'Create Car' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   )
@@ -2111,12 +2110,9 @@ function LocationsTab() {
         />
       )}
       <div className="flex justify-end mb-4">
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-1.5 bg-teal-500 hover:bg-teal-600 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
-        >
+        <Button onClick={openCreate} variant="primary" size="md" className="gap-1.5">
           <Plus className="w-4 h-4" /> Add Location
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -2124,7 +2120,7 @@ function LocationsTab() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -2178,13 +2174,15 @@ function LocationsTab() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => openEdit(loc)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        aria-label={`Edit ${loc.name}`}
+                        className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setDeleteTarget(loc)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        aria-label={`Deactivate ${loc.name}`}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -2205,66 +2203,63 @@ function LocationsTab() {
       )}
 
       {modal !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 sticky top-0 bg-white">
-              <h2 className="font-bold text-gray-900">
-                {modal === 'create' ? 'Add Location' : 'Edit Location'}
-              </h2>
-              <button onClick={() => setModal(null)}>
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
+        <Modal
+          title={modal === 'create' ? 'Add Location' : 'Edit Location'}
+          onClose={() => setModal(null)}
+        >
+          <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
+            {field('Location Name', 'name', 'text', true)}
+            <div className="grid grid-cols-2 gap-4">
+              {field('City', 'city', 'text', true)}
+              {field('State', 'state', 'text', true)}
             </div>
-            <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
-              {field('Location Name', 'name', 'text', true)}
-              <div className="grid grid-cols-2 gap-4">
-                {field('City', 'city', 'text', true)}
-                {field('State', 'state', 'text', true)}
-              </div>
-              {field('Address', 'address', 'text', true)}
-              <div className="grid grid-cols-2 gap-4">
-                {field('Phone', 'phone')}
-                {field('Email', 'email', 'email')}
-              </div>
-              <div className="flex items-center gap-6 pt-1">
-                {[
-                  ['isActive', 'Active'],
-                  ['isPickupAvailable', 'Pickup Available'],
-                  ['isDropAvailable', 'Drop Available'],
-                ].map(([key, label]) => (
-                  <label
-                    key={key}
-                    className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={form[key]}
-                      onChange={e => setForm(p => ({ ...p, [key]: e.target.checked }))}
-                      className="rounded"
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setModal(null)}
-                  className="flex-1 border border-gray-200 text-gray-700 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50"
+            {field('Address', 'address', 'text', true)}
+            <div className="grid grid-cols-2 gap-4">
+              {field('Phone', 'phone')}
+              {field('Email', 'email', 'email')}
+            </div>
+            <div className="flex items-center gap-6 pt-1">
+              {[
+                ['isActive', 'Active'],
+                ['isPickupAvailable', 'Pickup Available'],
+                ['isDropAvailable', 'Drop Available'],
+              ].map(([key, label]) => (
+                <label
+                  key={key}
+                  className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-lg transition-colors"
-                >
-                  {saving ? 'Saving...' : modal === 'create' ? 'Create' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+                  <input
+                    type="checkbox"
+                    checked={form[key]}
+                    onChange={e => setForm(p => ({ ...p, [key]: e.target.checked }))}
+                    className="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-400"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={() => setModal(null)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                disabled={saving}
+                className="flex-1"
+              >
+                {saving ? 'Saving...' : modal === 'create' ? 'Create' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   )
