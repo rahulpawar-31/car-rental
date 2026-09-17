@@ -7,7 +7,7 @@ export default function CarCard({ car }) {
   return (
     <Link
       to={`/cars/${car._id}`}
-      className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-300 group flex flex-col"
+      className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-300 group flex flex-col"
     >
       {/* Image */}
       <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden shrink-0">
@@ -18,7 +18,9 @@ export default function CarCard({ car }) {
             className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-br from-gray-100 to-gray-200">🚗</div>
+          <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-br from-gray-100 to-gray-200">
+            🚗
+          </div>
         )}
         {car.isFeatured && (
           <span className="absolute top-2.5 left-2.5 bg-teal-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wide">
@@ -27,7 +29,9 @@ export default function CarCard({ car }) {
         )}
         {!car.isAvailable && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <span className="bg-white text-gray-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">Unavailable</span>
+            <span className="bg-white text-gray-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+              Unavailable
+            </span>
           </div>
         )}
       </div>
@@ -37,8 +41,12 @@ export default function CarCard({ car }) {
         {/* Title + Rating */}
         <div className="flex items-start justify-between mb-1.5">
           <div>
-            <h3 className="font-bold text-gray-900 text-base leading-tight">{car.brand} {car.model}</h3>
-            <p className="text-xs text-gray-400 capitalize mt-0.5">{car.type} · {car.year}</p>
+            <h3 className="font-bold text-gray-900 text-base leading-tight">
+              {car.brand} {car.model}
+            </h3>
+            <p className="text-xs text-gray-400 capitalize mt-0.5">
+              {car.type} · {car.year}
+            </p>
           </div>
           {car.rating > 0 && (
             <div className="flex items-center gap-1 bg-amber-50 rounded-lg px-2 py-1 shrink-0">
@@ -75,7 +83,9 @@ export default function CarCard({ car }) {
         {/* Price + CTA */}
         <div className="flex items-center justify-between mt-auto">
           <div>
-            <span className="text-xl font-bold text-gray-900">₹{car.pricePerDay?.toLocaleString()}</span>
+            <span className="text-xl font-bold text-gray-900">
+              ₹{car.pricePerDay?.toLocaleString()}
+            </span>
             <span className="text-xs text-gray-400"> / day</span>
           </div>
           <span className="bg-teal-500 group-hover:bg-teal-600 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors uppercase tracking-wide">
