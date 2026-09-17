@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { Eye, EyeOff, Car, Star, Users, MapPin } from 'lucide-react'
 import useAuthStore from '../store/authStore'
+import Button from '../components/ui/Button'
 import { toast } from 'sonner'
 
 export default function Login() {
@@ -14,7 +15,7 @@ export default function Login() {
 
   if (user) return <Navigate to={from === '/login' ? '/home' : from} replace />
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault()
     const result = await login(form)
     if (result.success) {
@@ -27,12 +28,16 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex">
-
       {/* ── Left panel: branding ─────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-gray-900 via-gray-800 to-teal-900 flex-col items-center justify-center p-14 relative overflow-hidden">
         {/* subtle grid pattern */}
-        <div className="absolute inset-0 opacity-5"
-          style={{ backgroundImage: 'radial-gradient(circle, #14b8a6 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+        <div
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: 'radial-gradient(circle, #14b8a6 1px, transparent 1px)',
+            backgroundSize: '32px 32px',
+          }}
+        />
 
         <div className="relative z-10 text-center max-w-sm">
           <div className="flex items-center justify-center gap-3 mb-10">
@@ -55,7 +60,7 @@ export default function Login() {
             {[
               { label: '500+', sub: 'Cars Available', Icon: Car },
               { label: '10K+', sub: 'Happy Customers', Icon: Users },
-              { label: '50+',  sub: 'Locations',       Icon: MapPin },
+              { label: '50+', sub: 'Locations', Icon: MapPin },
             ].map(({ label, sub, Icon }) => (
               <div key={sub} className="text-center">
                 <Icon className="w-5 h-5 text-teal-400 mx-auto mb-2" />
@@ -82,7 +87,6 @@ export default function Login() {
       {/* ── Right panel: form ────────────────────────────────────── */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 bg-gray-50">
         <div className="w-full max-w-md">
-
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
             <div className="w-9 h-9 rounded-full bg-teal-500 flex items-center justify-center">
@@ -101,7 +105,12 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="login-email" className="text-sm font-medium text-gray-700 block mb-1.5">Email</label>
+                <label
+                  htmlFor="login-email"
+                  className="text-sm font-medium text-gray-700 block mb-1.5"
+                >
+                  Email
+                </label>
                 <input
                   id="login-email"
                   type="email"
@@ -116,8 +125,12 @@ export default function Login() {
 
               <div>
                 <div className="flex justify-between mb-1.5">
-                  <label htmlFor="login-password" className="text-sm font-medium text-gray-700">Password</label>
-                  <Link to="/forgot-password" className="text-xs text-teal-600 hover:underline">Forgot password?</Link>
+                  <label htmlFor="login-password" className="text-sm font-medium text-gray-700">
+                    Password
+                  </label>
+                  <Link to="/forgot-password" className="text-xs text-teal-600 hover:underline">
+                    Forgot password?
+                  </Link>
                 </div>
                 <div className="relative">
                   <input
@@ -133,6 +146,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPw(!showPw)}
+                    aria-label={showPw ? 'Hide password' : 'Show password'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
                     {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -140,18 +154,16 @@ export default function Login() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-teal-500 text-white font-semibold py-2.5 rounded-lg hover:bg-teal-600 transition-colors disabled:opacity-60 mt-2"
-              >
+              <Button type="submit" disabled={isLoading} className="w-full mt-2">
                 {isLoading ? 'Signing in...' : 'Sign in'}
-              </button>
+              </Button>
             </form>
 
             <p className="text-center text-sm text-gray-500 mt-6">
               Don't have an account?{' '}
-              <Link to="/register" className="text-teal-600 font-medium hover:underline">Sign up</Link>
+              <Link to="/register" className="text-teal-600 font-medium hover:underline">
+                Sign up
+              </Link>
             </p>
           </div>
         </div>
