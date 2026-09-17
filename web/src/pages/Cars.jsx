@@ -1,21 +1,32 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import {
-  Search, X, ChevronDown, ChevronUp, Star,
-  MapPin, Users, Settings, Fuel, Phone, Clock,
-  Check, SlidersHorizontal,
+  Search,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Star,
+  MapPin,
+  Users,
+  Settings,
+  Fuel,
+  Phone,
+  Clock,
+  Check,
+  SlidersHorizontal,
 } from 'lucide-react'
+import { FaFacebookF, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa'
 import { getCars, getCarFilters } from '../api/cars'
 import { getLocationById } from '../api/locations'
 import Spinner from '../components/ui/Spinner'
 
 const TRANSMISSIONS = ['automatic', 'manual']
-const SORT_OPTIONS  = [
-  { value: 'price-asc',   label: 'Price Low to High' },
-  { value: 'price-desc',  label: 'Price High to Low' },
-  { value: 'model-asc',   label: 'Sort By Model' },
+const SORT_OPTIONS = [
+  { value: 'price-asc', label: 'Price Low to High' },
+  { value: 'price-desc', label: 'Price High to Low' },
+  { value: 'model-asc', label: 'Sort By Model' },
   { value: 'rating-desc', label: 'Sort By Review Score' },
-  { value: '-createdAt',  label: 'Newest First' },
+  { value: '-createdAt', label: 'Newest First' },
 ]
 const RENTAL_TIPS = [
   {
@@ -40,15 +51,19 @@ function CarListCard({ car, pickupLocation, dropLocation }) {
   const primaryImage = car.images?.find(i => i.isPrimary) || car.images?.[0]
   const features = car.features?.slice(0, 6) || []
   const half = Math.ceil(features.length / 2)
-  const leftFeat  = features.slice(0, half)
+  const leftFeat = features.slice(0, half)
   const rightFeat = features.slice(half)
 
   const hasLocation = !!(pickupLocation || dropLocation)
   return (
     <Link
       to={hasLocation ? `/booking/${car._id}` : `/cars/${car._id}`}
-      state={hasLocation ? { pickupLocation: pickupLocation || null, dropLocation: dropLocation || null } : undefined}
-      className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-300 group"
+      state={
+        hasLocation
+          ? { pickupLocation: pickupLocation || null, dropLocation: dropLocation || null }
+          : undefined
+      }
+      className="bg-white border border-gray-200 rounded-2xl overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-300 group"
     >
       {/* Image */}
       <div className="relative w-full aspect-[16/10] shrink-0 bg-gray-100 overflow-hidden">
@@ -116,22 +131,23 @@ function CarListCard({ car, pickupLocation, dropLocation }) {
         <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 text-sm text-gray-500 mb-4">
           {car.seats && (
             <span className="flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-gray-400" /> {car.seats} Seats
+              <Users className="w-4 h-4 text-teal-500" /> {car.seats} Seats
             </span>
           )}
           {car.transmission && (
             <span className="flex items-center gap-1.5 capitalize">
-              <Settings className="w-4 h-4 text-gray-400" /> {car.transmission}
+              <Settings className="w-4 h-4 text-teal-500" /> {car.transmission}
             </span>
           )}
           {car.fuelType && (
             <span className="flex items-center gap-1.5 capitalize">
-              <Fuel className="w-4 h-4 text-gray-400" /> {car.fuelType}
+              <Fuel className="w-4 h-4 text-teal-500" /> {car.fuelType}
             </span>
           )}
           {car.location && (
             <span className="flex items-center gap-1.5 truncate">
-              <MapPin className="w-4 h-4 text-gray-400 shrink-0" /> {car.location.city || car.location.name}
+              <MapPin className="w-4 h-4 text-teal-500 shrink-0" />{' '}
+              {car.location.city || car.location.name}
             </span>
           )}
         </div>
@@ -142,14 +158,16 @@ function CarListCard({ car, pickupLocation, dropLocation }) {
             <div className="space-y-1.5 min-w-0">
               {leftFeat.map((f, i) => (
                 <span key={i} className="flex items-center gap-1.5 text-sm text-gray-600">
-                  <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" /> <span className="truncate">{f}</span>
+                  <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" />{' '}
+                  <span className="truncate">{f}</span>
                 </span>
               ))}
             </div>
             <div className="space-y-1.5 min-w-0">
               {rightFeat.map((f, i) => (
                 <span key={i} className="flex items-center gap-1.5 text-sm text-gray-600">
-                  <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" /> <span className="truncate">{f}</span>
+                  <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" />{' '}
+                  <span className="truncate">{f}</span>
                 </span>
               ))}
             </div>
@@ -170,9 +188,11 @@ function FilterSection({ title, defaultOpen = false, children }) {
         className="flex items-center justify-between w-full text-sm font-bold text-gray-800 mb-2"
       >
         {title}
-        {open
-          ? <ChevronUp className="w-4 h-4 text-gray-400" />
-          : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        {open ? (
+          <ChevronUp className="w-4 h-4 text-gray-400" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-gray-400" />
+        )}
       </button>
       {open && children}
     </div>
@@ -183,7 +203,7 @@ function CheckGroup({ options, value, onChange }) {
   return (
     <div className="space-y-2">
       {options.map(opt => {
-        const val   = typeof opt === 'string' ? opt : opt.value
+        const val = typeof opt === 'string' ? opt : opt.value
         const label = typeof opt === 'string' ? opt : opt.label
         const checked = value === val
         return (
@@ -191,7 +211,9 @@ function CheckGroup({ options, value, onChange }) {
             <div
               onClick={() => onChange(checked ? '' : val)}
               className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                checked ? 'bg-teal-500 border-teal-500' : 'border-gray-300 group-hover:border-teal-400'
+                checked
+                  ? 'bg-teal-500 border-teal-500'
+                  : 'border-gray-300 group-hover:border-teal-400'
               }`}
             >
               {checked && <div className="w-2 h-2 rounded-sm bg-white" />}
@@ -277,28 +299,35 @@ export default function Cars() {
   const [searchParams, setSearchParams] = useSearchParams()
   const routerLocation = useLocation()
   const [pickupLocation, setPickupLocation] = useState(routerLocation.state?.pickupLocation || null)
-  const [dropLocation, setDropLocation]     = useState(routerLocation.state?.dropLocation   || null)
-  const [cars, setCars]               = useState([])
-  const [pagination, setPagination]   = useState({})
-  const [filterData, setFilterData]   = useState({ brands: [], types: [], fuelTypes: [], priceRange: { min: 0, max: 10000 } })
-  const [loading, setLoading]         = useState(true)
+  const [dropLocation, setDropLocation] = useState(routerLocation.state?.dropLocation || null)
+  const [cars, setCars] = useState([])
+  const [pagination, setPagination] = useState({})
+  const [filterData, setFilterData] = useState({
+    brands: [],
+    types: [],
+    fuelTypes: [],
+    priceRange: { min: 0, max: 10000 },
+  })
+  const [loading, setLoading] = useState(true)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
   const [query, setQuery] = useState({
-    search:       searchParams.get('search')       || '',
-    type:         searchParams.get('type')         || '',
-    brand:        searchParams.get('brand')        || '',
+    search: searchParams.get('search') || '',
+    type: searchParams.get('type') || '',
+    brand: searchParams.get('brand') || '',
     transmission: searchParams.get('transmission') || '',
-    fuelType:     searchParams.get('fuelType')     || '',
-    minPrice:     searchParams.get('minPrice')     || '',
-    maxPrice:     searchParams.get('maxPrice')     || '',
-    sort:         searchParams.get('sort')         || 'price-asc',
-    page:         parseInt(searchParams.get('page') || '1'),
-    location:     searchParams.get('location')     || '',
+    fuelType: searchParams.get('fuelType') || '',
+    minPrice: searchParams.get('minPrice') || '',
+    maxPrice: searchParams.get('maxPrice') || '',
+    sort: searchParams.get('sort') || 'price-asc',
+    page: parseInt(searchParams.get('page') || '1'),
+    location: searchParams.get('location') || '',
   })
 
   useEffect(() => {
-    getCarFilters().then(({ data }) => setFilterData(data.data)).catch(() => {})
+    getCarFilters()
+      .then(({ data }) => setFilterData(data.data))
+      .catch(() => {})
   }, [])
 
   // Fix #10: rehydrate pickupLocation from API when navigating directly via URL (e.g. refresh)
@@ -314,28 +343,52 @@ export default function Cars() {
     setLoading(true)
     const controller = new AbortController()
     const params = {}
-    Object.entries(query).forEach(([k, v]) => { if (v) params[k] = v })
+    Object.entries(query).forEach(([k, v]) => {
+      if (v) params[k] = v
+    })
     getCars(params, { signal: controller.signal })
-      .then(({ data }) => { setCars(data.data.cars); setPagination(data.data.pagination) })
+      .then(({ data }) => {
+        setCars(data.data.cars)
+        setPagination(data.data.pagination)
+      })
       .catch(() => {})
-      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
     return () => controller.abort()
   }, [query])
 
-  const update = (updates) => setQuery(prev => ({ ...prev, ...updates, page: 1 }))
+  const update = updates => setQuery(prev => ({ ...prev, ...updates, page: 1 }))
 
   const clearFilters = () => {
-    setQuery({ search: '', type: '', brand: '', transmission: '', fuelType: '', minPrice: '', maxPrice: '', sort: 'price-asc', page: 1, location: '' })
+    setQuery({
+      search: '',
+      type: '',
+      brand: '',
+      transmission: '',
+      fuelType: '',
+      minPrice: '',
+      maxPrice: '',
+      sort: 'price-asc',
+      page: 1,
+      location: '',
+    })
     setSearchParams({})
     setPickupLocation(null)
     setDropLocation(null)
   }
 
-  const hasFilters = query.type || query.brand || query.transmission || query.fuelType || query.minPrice || query.maxPrice || query.search
+  const hasFilters =
+    query.type ||
+    query.brand ||
+    query.transmission ||
+    query.fuelType ||
+    query.minPrice ||
+    query.maxPrice ||
+    query.search
 
   return (
     <div className="bg-gray-50 min-h-screen">
-
       {/* ── Hero Banner ───────────────────────────────────────────────────── */}
       <div className="relative min-h-[420px] md:min-h-[540px] overflow-hidden">
         <img
@@ -359,7 +412,6 @@ export default function Cars() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-wrap gap-3 items-center">
-
             {/* Category / Type */}
             <div className="relative flex-1 min-w-[160px]">
               <select
@@ -369,7 +421,9 @@ export default function Cars() {
               >
                 <option value="">Category</option>
                 {filterData.types.map(t => (
-                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                  <option key={t} value={t}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </option>
                 ))}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -383,7 +437,11 @@ export default function Cars() {
                 className="w-full appearance-none border border-gray-200 rounded-lg px-4 py-2.5 pr-9 text-sm text-gray-600 bg-white outline-none focus:border-teal-400 transition-colors"
               >
                 <option value="">All Brands</option>
-                {filterData.brands.map(b => <option key={b} value={b}>{b}</option>)}
+                {filterData.brands.map(b => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
@@ -395,7 +453,11 @@ export default function Cars() {
                 onChange={e => update({ sort: e.target.value })}
                 className="w-full appearance-none border border-gray-200 rounded-lg px-4 py-2.5 pr-9 text-sm text-gray-600 bg-white outline-none focus:border-teal-400 transition-colors"
               >
-                {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {SORT_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
@@ -433,31 +495,39 @@ export default function Cars() {
       {/* ── Page Content ──────────────────────────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex gap-7 items-start">
-
           {/* ── Car List ──────────────────────────────────────────────────── */}
           <main className="flex-1 min-w-0">
             {/* Location banner */}
             {(pickupLocation || dropLocation) && (
-              <div className="mb-4 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+              <div className="mb-4 bg-teal-50 border border-teal-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm text-teal-800 flex-wrap">
                   <MapPin className="w-4 h-4 text-teal-500 shrink-0" />
                   {pickupLocation && (
-                    <span><span className="font-semibold">Pickup:</span> {pickupLocation.name}, {pickupLocation.city}</span>
+                    <span>
+                      <span className="font-semibold">Pickup:</span> {pickupLocation.name},{' '}
+                      {pickupLocation.city}
+                    </span>
                   )}
                   {dropLocation && (
-                    <span className={pickupLocation ? 'ml-2' : ''}><span className="font-semibold">Drop-off:</span> {dropLocation.name}, {dropLocation.city}</span>
+                    <span className={pickupLocation ? 'ml-2' : ''}>
+                      <span className="font-semibold">Drop-off:</span> {dropLocation.name},{' '}
+                      {dropLocation.city}
+                    </span>
                   )}
                   {!pickupLocation && dropLocation && (
                     <span className="text-teal-600 italic text-xs ml-1">(pickup: same branch)</span>
                   )}
                 </div>
-                <span className="text-xs text-teal-600 font-medium shrink-0">Click any car to book</span>
+                <span className="text-xs text-teal-600 font-medium shrink-0">
+                  Click any car to book
+                </span>
               </div>
             )}
             {/* Result count */}
             {!loading && (
               <p className="text-sm text-gray-500 mb-4">
-                <span className="font-semibold text-gray-900">{pagination.total || 0}</span> cars found
+                <span className="font-semibold text-gray-900">{pagination.total || 0}</span> cars
+                found
                 {hasFilters && (
                   <span className="ml-2 text-xs text-teal-600 font-medium">· filters active</span>
                 )}
@@ -469,18 +539,28 @@ export default function Cars() {
                 <Spinner size="lg" />
               </div>
             ) : cars.length === 0 ? (
-              <div className="text-center py-24 bg-white rounded-xl border border-gray-200">
+              <div className="text-center py-24 bg-white rounded-2xl border border-gray-200">
                 <div className="text-5xl mb-4">🚗</div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No cars found</h3>
                 <p className="text-gray-500 text-sm mb-4">Try adjusting your filters</p>
-                <button onClick={clearFilters} className="text-sm text-teal-600 font-semibold hover:underline">
+                <button
+                  onClick={clearFilters}
+                  className="text-sm text-teal-600 font-semibold hover:underline"
+                >
                   Clear all filters
                 </button>
               </div>
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  {cars.map(car => <CarListCard key={car._id} car={car} pickupLocation={pickupLocation} dropLocation={dropLocation} />)}
+                  {cars.map(car => (
+                    <CarListCard
+                      key={car._id}
+                      car={car}
+                      pickupLocation={pickupLocation}
+                      dropLocation={dropLocation}
+                    />
+                  ))}
                 </div>
 
                 {/* Pagination */}
@@ -494,7 +574,9 @@ export default function Cars() {
                       ← Prev
                     </button>
                     {Array.from({ length: pagination.pages }, (_, i) => i + 1)
-                      .filter(p => p === 1 || p === pagination.pages || Math.abs(p - query.page) <= 1)
+                      .filter(
+                        p => p === 1 || p === pagination.pages || Math.abs(p - query.page) <= 1
+                      )
                       .reduce((acc, p, i, arr) => {
                         if (i > 0 && p - arr[i - 1] > 1) acc.push('...')
                         acc.push(p)
@@ -502,7 +584,9 @@ export default function Cars() {
                       }, [])
                       .map((p, i) =>
                         p === '...' ? (
-                          <span key={`dots-${i}`} className="px-2 text-gray-400 text-sm">…</span>
+                          <span key={`dots-${i}`} className="px-2 text-gray-400 text-sm">
+                            …
+                          </span>
                         ) : (
                           <button
                             key={p}
@@ -535,9 +619,8 @@ export default function Cars() {
 
           {/* ── Right Sidebar ─────────────────────────────────────────────── */}
           <aside className="hidden lg:flex flex-col gap-5 w-64 xl:w-72 shrink-0 sticky top-24">
-
             {/* For More Information */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <div className="bg-white border border-gray-200 rounded-2xl p-5">
               <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">
                 For More Information
               </h3>
@@ -554,7 +637,7 @@ export default function Cars() {
             </div>
 
             {/* Rental Tips */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <div className="bg-white border border-gray-200 rounded-2xl p-5">
               <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">
                 Rental Tips
               </h3>
@@ -578,34 +661,43 @@ export default function Cars() {
             </div>
 
             {/* Connect with Us */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <div className="bg-white border border-gray-200 rounded-2xl p-5">
               <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">
                 Connect with Us
               </h3>
               <div className="flex gap-2">
                 {[
-                  { letter: 'f', bg: 'bg-blue-600' },
-                  { letter: 't', bg: 'bg-sky-500' },
-                  { letter: 'y', bg: 'bg-red-600' },
-                  { letter: 'p', bg: 'bg-pink-600' },
-                  { letter: 'in', bg: 'bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600' },
-                ].map(({ letter, bg }) => (
-                  <a key={letter} href="#" onClick={e => e.preventDefault()}
-                    className={`w-9 h-9 rounded-full ${bg} flex items-center justify-center text-white text-xs font-bold hover:opacity-90 transition-opacity uppercase`}>
-                    {letter}
+                  { label: 'Facebook', Icon: FaFacebookF },
+                  { label: 'Twitter', Icon: FaTwitter },
+                  { label: 'Instagram', Icon: FaInstagram },
+                  { label: 'YouTube', Icon: FaYoutube },
+                ].map(({ label, Icon }) => (
+                  <a
+                    key={label}
+                    href="#"
+                    onClick={e => e.preventDefault()}
+                    aria-label={label}
+                    className="w-9 h-9 rounded-full border border-gray-200 text-gray-500 flex items-center justify-center hover:border-teal-400 hover:text-teal-500 transition-colors"
+                  >
+                    <Icon size={13} />
                   </a>
                 ))}
               </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <div className="bg-white border border-gray-200 rounded-2xl p-5">
               <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">
                 Filters
               </h3>
-              <FiltersPanel query={query} update={update} filterData={filterData} hasFilters={hasFilters} clearFilters={clearFilters} />
+              <FiltersPanel
+                query={query}
+                update={update}
+                filterData={filterData}
+                hasFilters={hasFilters}
+                clearFilters={clearFilters}
+              />
             </div>
-
           </aside>
         </div>
       </div>
@@ -613,15 +705,28 @@ export default function Cars() {
       {/* ── Mobile filter drawer ──────────────────────────────────────────── */}
       {mobileFiltersOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileFiltersOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileFiltersOpen(false)}
+          />
           <div className="relative w-full max-w-xs h-full bg-white shadow-xl overflow-y-auto p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide">Filters</h3>
-              <button onClick={() => setMobileFiltersOpen(false)} aria-label="Close filters" className="p-1 text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => setMobileFiltersOpen(false)}
+                aria-label="Close filters"
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <FiltersPanel query={query} update={update} filterData={filterData} hasFilters={hasFilters} clearFilters={clearFilters} />
+            <FiltersPanel
+              query={query}
+              update={update}
+              filterData={filterData}
+              hasFilters={hasFilters}
+              clearFilters={clearFilters}
+            />
             <button
               onClick={() => setMobileFiltersOpen(false)}
               className="w-full mt-4 bg-teal-500 hover:bg-teal-600 text-white font-bold py-2.5 rounded-lg text-sm transition-colors"
