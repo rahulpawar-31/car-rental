@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Car, Shield, Clock, CreditCard } from 'lucide-react'
 import useAuthStore from '../store/authStore'
+import Button from '../components/ui/Button'
 import { toast } from 'sonner'
 
 export default function Register() {
@@ -10,7 +11,7 @@ export default function Register() {
   const { register, isLoading } = useAuthStore()
   const navigate = useNavigate()
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault()
     if (form.password.length < 8) return toast.error('Password must be at least 8 characters')
     const result = await register(form)
@@ -22,15 +23,19 @@ export default function Register() {
     }
   }
 
-  const set = (key) => (e) => setForm(p => ({ ...p, [key]: e.target.value }))
+  const set = key => e => setForm(p => ({ ...p, [key]: e.target.value }))
 
   return (
     <div className="min-h-screen flex">
-
       {/* ── Left panel: branding ─────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-gray-900 via-gray-800 to-teal-900 flex-col items-center justify-center p-14 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5"
-          style={{ backgroundImage: 'radial-gradient(circle, #14b8a6 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+        <div
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: 'radial-gradient(circle, #14b8a6 1px, transparent 1px)',
+            backgroundSize: '32px 32px',
+          }}
+        />
 
         <div className="relative z-10 text-center max-w-sm">
           <div className="flex items-center justify-center gap-3 mb-10">
@@ -51,11 +56,26 @@ export default function Register() {
 
           <div className="mt-12 space-y-4 text-left">
             {[
-              { Icon: Shield,     title: 'Fully Insured',       desc: 'Every rental includes third-party insurance' },
-              { Icon: Clock,      title: 'Instant Confirmation', desc: 'Book in minutes, drive the same day' },
-              { Icon: CreditCard, title: 'Flexible Payment',     desc: 'Pay online securely via card or UPI' },
+              {
+                Icon: Shield,
+                title: 'Fully Insured',
+                desc: 'Every rental includes third-party insurance',
+              },
+              {
+                Icon: Clock,
+                title: 'Instant Confirmation',
+                desc: 'Book in minutes, drive the same day',
+              },
+              {
+                Icon: CreditCard,
+                title: 'Flexible Payment',
+                desc: 'Pay online securely via card or UPI',
+              },
             ].map(({ Icon, title, desc }) => (
-              <div key={title} className="flex items-start gap-4 bg-white/5 rounded-xl p-4 border border-white/10">
+              <div
+                key={title}
+                className="flex items-start gap-4 bg-white/5 rounded-2xl p-4 border border-white/10"
+              >
                 <div className="w-9 h-9 rounded-full bg-teal-500/20 flex items-center justify-center shrink-0">
                   <Icon className="w-4 h-4 text-teal-400" />
                 </div>
@@ -72,7 +92,6 @@ export default function Register() {
       {/* ── Right panel: form ────────────────────────────────────── */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 bg-gray-50">
         <div className="w-full max-w-md">
-
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
             <div className="w-9 h-9 rounded-full bg-teal-500 flex items-center justify-center">
@@ -91,7 +110,12 @@ export default function Register() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="register-name" className="text-sm font-medium text-gray-700 block mb-1.5">Full Name</label>
+                <label
+                  htmlFor="register-name"
+                  className="text-sm font-medium text-gray-700 block mb-1.5"
+                >
+                  Full Name
+                </label>
                 <input
                   id="register-name"
                   type="text"
@@ -104,7 +128,12 @@ export default function Register() {
               </div>
 
               <div>
-                <label htmlFor="register-email" className="text-sm font-medium text-gray-700 block mb-1.5">Email</label>
+                <label
+                  htmlFor="register-email"
+                  className="text-sm font-medium text-gray-700 block mb-1.5"
+                >
+                  Email
+                </label>
                 <input
                   id="register-email"
                   type="email"
@@ -117,7 +146,12 @@ export default function Register() {
               </div>
 
               <div>
-                <label htmlFor="register-phone" className="text-sm font-medium text-gray-700 block mb-1.5">Phone</label>
+                <label
+                  htmlFor="register-phone"
+                  className="text-sm font-medium text-gray-700 block mb-1.5"
+                >
+                  Phone
+                </label>
                 <input
                   id="register-phone"
                   type="tel"
@@ -129,7 +163,12 @@ export default function Register() {
               </div>
 
               <div>
-                <label htmlFor="register-password" className="text-sm font-medium text-gray-700 block mb-1.5">Password</label>
+                <label
+                  htmlFor="register-password"
+                  className="text-sm font-medium text-gray-700 block mb-1.5"
+                >
+                  Password
+                </label>
                 <div className="relative">
                   <input
                     id="register-password"
@@ -143,6 +182,7 @@ export default function Register() {
                   <button
                     type="button"
                     onClick={() => setShowPw(!showPw)}
+                    aria-label={showPw ? 'Hide password' : 'Show password'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
                     {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -150,18 +190,16 @@ export default function Register() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-teal-500 text-white font-semibold py-2.5 rounded-lg hover:bg-teal-600 transition-colors disabled:opacity-60 mt-2"
-              >
+              <Button type="submit" disabled={isLoading} className="w-full mt-2">
                 {isLoading ? 'Creating account...' : 'Create account'}
-              </button>
+              </Button>
             </form>
 
             <p className="text-center text-sm text-gray-500 mt-6">
               Already have an account?{' '}
-              <Link to="/login" className="text-teal-600 font-medium hover:underline">Sign in</Link>
+              <Link to="/login" className="text-teal-600 font-medium hover:underline">
+                Sign in
+              </Link>
             </p>
           </div>
         </div>
