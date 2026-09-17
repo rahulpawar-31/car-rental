@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Home from '../pages/Home'
 import { getFeaturedCars } from '../api/cars'
@@ -73,7 +73,15 @@ describe('Home page', () => {
       },
     })
     renderHome()
-    await waitFor(() => expect(screen.getByLabelText(/pickup location/i)).toBeInTheDocument())
+    // Wait for the mocked location to actually appear as an <option> -- waiting
+    // only for the <select> itself races the getLocations() promise, since the
+    // field renders unconditionally before its options are populated.
+    await waitFor(() => {
+      const pickupField = screen.getByLabelText(/pickup location/i)
+      expect(
+        within(pickupField).getByRole('option', { name: /mg road branch/i })
+      ).toBeInTheDocument()
+    })
 
     fireEvent.change(screen.getByLabelText(/pickup location/i), { target: { value: 'loc1' } })
     fireEvent.click(screen.getByRole('button', { name: /search/i }))
@@ -100,7 +108,10 @@ describe('Home page', () => {
       },
     })
     renderHome()
-    await waitFor(() => expect(screen.getByLabelText(/drop-off location/i)).toBeInTheDocument())
+    await waitFor(() => {
+      const dropField = screen.getByLabelText(/drop-off location/i)
+      expect(within(dropField).getByRole('option', { name: /airport branch/i })).toBeInTheDocument()
+    })
 
     fireEvent.change(screen.getByLabelText(/drop-off location/i), { target: { value: 'loc2' } })
     fireEvent.click(screen.getByRole('button', { name: /search/i }))
