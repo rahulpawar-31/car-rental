@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapPin, Clock, Phone, Search, Car, ArrowRight, X, CheckCircle, AlertCircle } from 'lucide-react'
+import {
+  MapPin,
+  Clock,
+  Phone,
+  Search,
+  Car,
+  ArrowRight,
+  X,
+  CheckCircle,
+  AlertCircle,
+} from 'lucide-react'
 import { getLocations } from '../api/locations'
 import Spinner from '../components/ui/Spinner'
 import { toast } from 'sonner'
@@ -21,20 +31,27 @@ export default function Locations() {
       .finally(() => setLoading(false))
   }, [])
 
-  const filtered = locations.filter(l =>
-    l.name.toLowerCase().includes(search.toLowerCase()) ||
-    l.city.toLowerCase().includes(search.toLowerCase())
+  const filtered = locations.filter(
+    l =>
+      l.name.toLowerCase().includes(search.toLowerCase()) ||
+      l.city.toLowerCase().includes(search.toLowerCase())
   )
 
-  const handlePickup = (loc) => {
-    if (pickup?._id === loc._id) { setPickup(null); return }
+  const handlePickup = loc => {
+    if (pickup?._id === loc._id) {
+      setPickup(null)
+      return
+    }
     setPickup(loc)
     setPickupError(false)
     if (drop?._id === loc._id) setDrop(null)
   }
 
-  const handleDrop = (loc) => {
-    if (drop?._id === loc._id) { setDrop(null); return }
+  const handleDrop = loc => {
+    if (drop?._id === loc._id) {
+      setDrop(null)
+      return
+    }
     setDrop(loc)
     if (pickup?._id === loc._id) setPickup(null)
   }
@@ -59,12 +76,13 @@ export default function Locations() {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-2xl font-bold text-gray-900">Choose Your Locations</h1>
-          <p className="text-gray-500 text-sm mt-1">Select your pickup and/or drop-off location — you can set either one first</p>
+          <p className="text-gray-500 text-sm mt-1">
+            Select your pickup and/or drop-off location — you can set either one first
+          </p>
         </div>
       </div>
 
@@ -72,24 +90,35 @@ export default function Locations() {
       <div className="bg-teal-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-
             {/* Pickup */}
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-teal-200 uppercase tracking-wider font-semibold mb-0.5">Pickup</p>
+              <p className="text-xs text-teal-200 uppercase tracking-wider font-semibold mb-0.5">
+                Pickup
+              </p>
               {pickup ? (
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-teal-300 shrink-0" />
-                  <span className="font-semibold truncate">{pickup.name}, {pickup.city}</span>
-                  <button onClick={() => setPickup(null)} className="ml-1 text-teal-300 hover:text-white transition-colors shrink-0">
+                  <span className="font-semibold truncate">
+                    {pickup.name}, {pickup.city}
+                  </span>
+                  <button
+                    onClick={() => setPickup(null)}
+                    aria-label="Clear pickup location"
+                    className="ml-1 text-teal-300 hover:text-white transition-colors shrink-0"
+                  >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ) : drop ? (
-                <p className="text-sm text-teal-300 italic">Same as drop-off — or set a different branch</p>
+                <p className="text-sm text-teal-300 italic">
+                  Same as drop-off — or set a different branch
+                </p>
               ) : pickupError ? (
                 <div className="flex items-center gap-2 animate-pulse">
                   <AlertCircle className="w-4 h-4 text-red-300 shrink-0" />
-                  <p className="text-sm text-red-300 font-semibold">Select at least one location!</p>
+                  <p className="text-sm text-red-300 font-semibold">
+                    Select at least one location!
+                  </p>
                 </div>
               ) : (
                 <p className="text-sm text-teal-300 italic">Click a location below to set pickup</p>
@@ -100,12 +129,20 @@ export default function Locations() {
 
             {/* Drop-off */}
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-teal-200 uppercase tracking-wider font-semibold mb-0.5">Drop-off</p>
+              <p className="text-xs text-teal-200 uppercase tracking-wider font-semibold mb-0.5">
+                Drop-off
+              </p>
               {drop ? (
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-teal-300 shrink-0" />
-                  <span className="font-semibold truncate">{drop.name}, {drop.city}</span>
-                  <button onClick={() => setDrop(null)} className="ml-1 text-teal-300 hover:text-white transition-colors shrink-0">
+                  <span className="font-semibold truncate">
+                    {drop.name}, {drop.city}
+                  </span>
+                  <button
+                    onClick={() => setDrop(null)}
+                    aria-label="Clear drop-off location"
+                    className="ml-1 text-teal-300 hover:text-white transition-colors shrink-0"
+                  >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -117,7 +154,7 @@ export default function Locations() {
             {/* Find Cars */}
             <button
               onClick={handleFindCars}
-              className="flex items-center gap-2 bg-white text-teal-700 font-bold px-5 py-2.5 rounded-xl hover:bg-teal-50 transition-colors shrink-0 text-sm"
+              className="flex items-center gap-2 bg-white text-teal-700 font-bold px-5 py-2.5 rounded-lg hover:bg-teal-50 transition-colors shrink-0 text-sm"
             >
               <Car className="w-4 h-4" /> Find Cars
             </button>
@@ -139,7 +176,9 @@ export default function Locations() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-20"><Spinner size="lg" /></div>
+          <div className="flex justify-center py-20">
+            <Spinner size="lg" />
+          </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">📍</div>
@@ -150,26 +189,22 @@ export default function Locations() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map(loc => {
               const isPickup = pickup?._id === loc._id
-              const isDrop   = drop?._id   === loc._id
+              const isDrop = drop?._id === loc._id
               const canPickup = loc.isPickupAvailable !== false
-              const canDrop   = loc.isDropAvailable   !== false
+              const canDrop = loc.isDropAvailable !== false
 
               return (
                 <div
                   key={loc._id}
-                  className={`bg-white rounded-xl border-2 transition-all ${
-                    isPickup
+                  className={`bg-white rounded-2xl border-2 transition-all ${
+                    isPickup || isDrop
                       ? 'border-teal-500 shadow-md shadow-teal-100'
-                      : isDrop
-                      ? 'border-purple-400 shadow-md shadow-purple-100'
                       : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                   }`}
                 >
                   {/* Selected badge */}
                   {(isPickup || isDrop) && (
-                    <div className={`rounded-t-xl px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${
-                      isPickup ? 'bg-teal-500 text-white' : 'bg-purple-500 text-white'
-                    }`}>
+                    <div className="rounded-t-2xl px-4 py-1.5 text-xs font-bold uppercase tracking-wider bg-teal-500 text-white">
                       {isPickup ? '✓ Pickup selected' : '✓ Drop-off selected'}
                     </div>
                   )}
@@ -177,7 +212,11 @@ export default function Locations() {
                   <div className="p-5">
                     {loc.image && (
                       <div className="h-36 bg-gray-100 rounded-lg overflow-hidden mb-4">
-                        <img src={loc.image} alt={loc.name} className="w-full h-full object-cover" />
+                        <img
+                          src={loc.image}
+                          alt={loc.name}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                     )}
 
@@ -189,7 +228,9 @@ export default function Locations() {
                         </div>
                       </div>
                       {loc.airportLocation && (
-                        <span className="text-xs bg-blue-50 text-blue-700 font-medium px-2 py-0.5 rounded-full">Airport</span>
+                        <span className="text-xs bg-teal-50 text-teal-700 font-medium px-2 py-0.5 rounded-full">
+                          Airport
+                        </span>
                       )}
                     </div>
 
@@ -202,7 +243,8 @@ export default function Locations() {
                         </span>
                       ) : (
                         <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" /> {loc.operatingHours?.open} – {loc.operatingHours?.close}
+                          <Clock className="w-3.5 h-3.5" /> {loc.operatingHours?.open} –{' '}
+                          {loc.operatingHours?.close}
                         </span>
                       )}
                       {loc.phone && (
@@ -231,8 +273,8 @@ export default function Locations() {
                           onClick={() => handleDrop(loc)}
                           className={`flex-1 text-xs font-bold py-2 rounded-lg border-2 transition-colors ${
                             isDrop
-                              ? 'bg-purple-500 border-purple-500 text-white'
-                              : 'border-purple-400 text-purple-600 hover:bg-purple-50'
+                              ? 'bg-teal-500 border-teal-500 text-white'
+                              : 'border-teal-400 text-teal-600 hover:bg-teal-50'
                           }`}
                         >
                           {isDrop ? '✓ Drop-off' : 'Set Drop-off'}
