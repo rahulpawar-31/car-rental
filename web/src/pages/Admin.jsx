@@ -943,12 +943,10 @@ const EMPTY_COUPON = {
 function CouponsTab() {
   const [coupons, setCoupons] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
+  const [modal, setModal] = useState(null) // null | 'create' | coupon object
   const [form, setForm] = useState(EMPTY_COUPON)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(null)
-  const [editingCoupon, setEditingCoupon] = useState(null)
-  const [editForm, setEditForm] = useState(EMPTY_COUPON)
   const [deleteTarget, setDeleteTarget] = useState(null)
 
   const load = () => {
@@ -965,25 +963,64 @@ function CouponsTab() {
 
   const setF = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
 
+  const openCreate = () => {
+    setForm(EMPTY_COUPON)
+    setModal('create')
+  }
+  const openEdit = c => {
+    setForm({
+      code: c.code,
+      description: c.description || '',
+      type: c.type,
+      value: c.value,
+      minBookingAmount: c.minBookingAmount || 0,
+      maxDiscountAmount: c.maxDiscountAmount || '',
+      usageLimit: c.usageLimit || '',
+      perUserLimit: c.perUserLimit || 1,
+      startDate: c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : '',
+      endDate: c.endDate ? new Date(c.endDate).toISOString().split('T')[0] : '',
+    })
+    setModal(c)
+  }
+
   const handleSave = async e => {
     e.preventDefault()
     setSaving(true)
     try {
-      const payload = {
-        ...form,
-        value: Number(form.value),
-        minBookingAmount: Number(form.minBookingAmount) || 0,
-        maxDiscountAmount: form.maxDiscountAmount ? Number(form.maxDiscountAmount) : undefined,
-        usageLimit: form.usageLimit ? Number(form.usageLimit) : undefined,
-        perUserLimit: Number(form.perUserLimit),
+      if (modal === 'create') {
+        const payload = {
+          ...form,
+          value: Number(form.value),
+          minBookingAmount: Number(form.minBookingAmount) || 0,
+          maxDiscountAmount: form.maxDiscountAmount ? Number(form.maxDiscountAmount) : undefined,
+          usageLimit: form.usageLimit ? Number(form.usageLimit) : undefined,
+          perUserLimit: Number(form.perUserLimit),
+        }
+        await createCoupon(payload)
+        toast.success('Coupon created!')
+      } else {
+        const payload = {
+          description: form.description,
+          value: Number(form.value),
+          minBookingAmount: Number(form.minBookingAmount) || 0,
+          maxDiscountAmount: form.maxDiscountAmount ? Number(form.maxDiscountAmount) : undefined,
+          usageLimit: form.usageLimit ? Number(form.usageLimit) : undefined,
+          perUserLimit: Number(form.perUserLimit),
+          startDate: form.startDate,
+          endDate: form.endDate,
+        }
+        await updateCoupon(modal._id, payload)
+        toast.success('Coupon updated!')
       }
-      await createCoupon(payload)
-      toast.success('Coupon created!')
-      setShowForm(false)
-      setForm(EMPTY_COUPON)
+      setModal(null)
       load()
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to create coupon'))
+      toast.error(
+        getErrorMessage(
+          err,
+          modal === 'create' ? 'Failed to create coupon' : 'Failed to update coupon'
+        )
+      )
     } finally {
       setSaving(false)
     }
@@ -1013,51 +1050,6 @@ function CouponsTab() {
     }
   }
 
-  const startEdit = c => {
-    setEditingCoupon(c._id)
-    setEditForm({
-      code: c.code,
-      description: c.description || '',
-      type: c.type,
-      value: c.value,
-      minBookingAmount: c.minBookingAmount || 0,
-      maxDiscountAmount: c.maxDiscountAmount || '',
-      usageLimit: c.usageLimit || '',
-      perUserLimit: c.perUserLimit || 1,
-      startDate: c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : '',
-      endDate: c.endDate ? new Date(c.endDate).toISOString().split('T')[0] : '',
-    })
-  }
-
-  const handleEditSave = async e => {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      const payload = {
-        description: editForm.description,
-        value: Number(editForm.value),
-        minBookingAmount: Number(editForm.minBookingAmount) || 0,
-        maxDiscountAmount: editForm.maxDiscountAmount
-          ? Number(editForm.maxDiscountAmount)
-          : undefined,
-        usageLimit: editForm.usageLimit ? Number(editForm.usageLimit) : undefined,
-        perUserLimit: Number(editForm.perUserLimit),
-        startDate: editForm.startDate,
-        endDate: editForm.endDate,
-      }
-      await updateCoupon(editingCoupon, payload)
-      toast.success('Coupon updated!')
-      setEditingCoupon(null)
-      load()
-    } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to update coupon'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const setEF = k => e => setEditForm(p => ({ ...p, [k]: e.target.value }))
-
   const today = new Date().toISOString().split('T')[0]
 
   return (
@@ -1072,40 +1064,30 @@ function CouponsTab() {
       )}
       <div className="flex items-center justify-between mb-5">
         <span className="text-sm text-gray-500">{coupons.length} coupons</span>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-800"
-        >
+        <Button onClick={openCreate} variant="primary" size="md" className="gap-2">
           <Plus className="w-4 h-4" /> New Coupon
-        </button>
+        </Button>
       </div>
 
-      {/* Create form */}
-      {showForm && (
-        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="font-semibold text-gray-900">Create Coupon</h3>
-            <button
-              onClick={() => {
-                setShowForm(false)
-                setForm(EMPTY_COUPON)
-              }}
-            >
-              <X className="w-5 h-5 text-gray-400 hover:text-gray-600" />
-            </button>
-          </div>
+      {modal !== null && (
+        <Modal
+          title={modal === 'create' ? 'Create Coupon' : 'Edit Coupon'}
+          onClose={() => setModal(null)}
+          maxWidth="max-w-2xl"
+        >
           <form
             onSubmit={handleSave}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
           >
             <div>
               <label className="text-xs font-medium text-gray-600 block mb-1">Code *</label>
               <input
                 required
+                disabled={modal !== 'create'}
                 value={form.code}
                 onChange={setF('code')}
                 placeholder="e.g. SUMMER20"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 uppercase disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
             <div className="sm:col-span-2 lg:col-span-2">
@@ -1115,7 +1097,7 @@ function CouponsTab() {
                 value={form.description}
                 onChange={setF('description')}
                 placeholder="e.g. 20% off for summer"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -1123,7 +1105,8 @@ function CouponsTab() {
               <select
                 value={form.type}
                 onChange={setF('type')}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
+                disabled={modal !== 'create'}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white disabled:bg-gray-50 disabled:text-gray-400"
               >
                 <option value="percentage">Percentage (%)</option>
                 <option value="fixed">Fixed (₹)</option>
@@ -1138,7 +1121,7 @@ function CouponsTab() {
                 value={form.value}
                 onChange={setF('value')}
                 placeholder={form.type === 'percentage' ? '20' : '500'}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -1151,7 +1134,7 @@ function CouponsTab() {
                 value={form.minBookingAmount}
                 onChange={setF('minBookingAmount')}
                 placeholder="0"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
             {form.type === 'percentage' && (
@@ -1165,7 +1148,7 @@ function CouponsTab() {
                   value={form.maxDiscountAmount}
                   onChange={setF('maxDiscountAmount')}
                   placeholder="Optional"
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
                 />
               </div>
             )}
@@ -1177,7 +1160,7 @@ function CouponsTab() {
                 value={form.usageLimit}
                 onChange={setF('usageLimit')}
                 placeholder="Unlimited"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -1187,7 +1170,7 @@ function CouponsTab() {
                 min="1"
                 value={form.perUserLimit}
                 onChange={setF('perUserLimit')}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -1198,7 +1181,7 @@ function CouponsTab() {
                 min={today}
                 value={form.startDate}
                 onChange={setF('startDate')}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -1209,152 +1192,37 @@ function CouponsTab() {
                 min={form.startDate || today}
                 value={form.endDate}
                 onChange={setF('endDate')}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400"
               />
             </div>
-            <div className="sm:col-span-2 lg:col-span-3 flex gap-3">
-              <button
-                type="submit"
-                disabled={saving}
-                className="bg-blue-700 text-white text-sm font-medium px-6 py-2 rounded-lg hover:bg-blue-800 disabled:opacity-60"
-              >
-                {saving ? 'Creating...' : 'Create Coupon'}
-              </button>
-              <button
+            <div className="sm:col-span-2 lg:col-span-3 flex gap-3 pt-2">
+              <Button
                 type="button"
-                onClick={() => {
-                  setShowForm(false)
-                  setForm(EMPTY_COUPON)
-                }}
-                className="border border-gray-200 text-gray-700 text-sm font-medium px-6 py-2 rounded-lg hover:bg-gray-50"
+                variant="outline"
+                size="md"
+                onClick={() => setModal(null)}
+                className="flex-1"
               >
                 Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Edit form */}
-      {editingCoupon && (
-        <div className="bg-white border border-blue-200 rounded-xl p-6 mb-6">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="font-semibold text-gray-900">
-              Edit Coupon — <span className="font-mono text-blue-700">{editForm.code}</span>
-            </h3>
-            <button onClick={() => setEditingCoupon(null)}>
-              <X className="w-5 h-5 text-gray-400 hover:text-gray-600" />
-            </button>
-          </div>
-          <form
-            onSubmit={handleEditSave}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-          >
-            <div className="sm:col-span-2 lg:col-span-3">
-              <label className="text-xs font-medium text-gray-600 block mb-1">Description *</label>
-              <input
-                required
-                value={editForm.description}
-                onChange={setEF('description')}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Value *</label>
-              <input
-                required
-                type="number"
-                min="1"
-                value={editForm.value}
-                onChange={setEF('value')}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">
-                Min Booking (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={editForm.minBookingAmount}
-                onChange={setEF('minBookingAmount')}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">
-                Max Discount (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={editForm.maxDiscountAmount}
-                onChange={setEF('maxDiscountAmount')}
-                placeholder="No limit"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Usage Limit</label>
-              <input
-                type="number"
-                min="1"
-                value={editForm.usageLimit}
-                onChange={setEF('usageLimit')}
-                placeholder="Unlimited"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Per-user Limit</label>
-              <input
-                type="number"
-                min="1"
-                value={editForm.perUserLimit}
-                onChange={setEF('perUserLimit')}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Start Date *</label>
-              <input
-                required
-                type="date"
-                value={editForm.startDate}
-                onChange={setEF('startDate')}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">End Date *</label>
-              <input
-                required
-                type="date"
-                min={editForm.startDate}
-                value={editForm.endDate}
-                onChange={setEF('endDate')}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3 flex gap-3">
-              <button
+              </Button>
+              <Button
                 type="submit"
+                variant="primary"
+                size="md"
                 disabled={saving}
-                className="bg-blue-700 text-white text-sm font-medium px-6 py-2 rounded-lg hover:bg-blue-800 disabled:opacity-60"
+                className="flex-1"
               >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditingCoupon(null)}
-                className="border border-gray-200 text-gray-700 text-sm font-medium px-6 py-2 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
+                {saving
+                  ? modal === 'create'
+                    ? 'Creating...'
+                    : 'Saving...'
+                  : modal === 'create'
+                    ? 'Create Coupon'
+                    : 'Save Changes'}
+              </Button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
       {loading ? (
@@ -1362,7 +1230,7 @@ function CouponsTab() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -1430,7 +1298,10 @@ function CouponsTab() {
                             <button
                               onClick={() => handleToggleActive(c)}
                               title={c.isActive ? 'Deactivate' : 'Activate'}
-                              className="text-gray-400 hover:text-gray-700"
+                              aria-label={
+                                c.isActive ? `Deactivate ${c.code}` : `Activate ${c.code}`
+                              }
+                              className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
                             >
                               {c.isActive ? (
                                 <ToggleRight className="w-5 h-5 text-green-600" />
@@ -1440,16 +1311,18 @@ function CouponsTab() {
                             </button>
                           )}
                           <button
-                            onClick={() => startEdit(c)}
+                            onClick={() => openEdit(c)}
                             title="Edit coupon"
-                            className="text-gray-400 hover:text-blue-600"
+                            aria-label={`Edit coupon ${c.code}`}
+                            className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setDeleteTarget(c)}
                             disabled={deleting === c._id}
-                            className="text-gray-400 hover:text-red-500 disabled:opacity-40"
+                            aria-label={`Delete coupon ${c.code}`}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
                           >
                             {deleting === c._id ? (
                               <Spinner size="sm" />
