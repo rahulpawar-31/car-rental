@@ -131,7 +131,7 @@ export default function BookingDetail() {
             <div className="flex gap-4">
               <div className="w-20 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                 {car.images?.[0] ? (
-                  <img src={car.images[0].url} alt="" className="w-full h-full object-cover" />
+                  <img src={car.images[0].url} alt="" className="w-full h-full object-cover object-bottom" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-2xl">🚗</div>
                 )}

@@ -15,7 +15,7 @@ export default function CarCard({ car }) {
           <img
             src={primaryImage.url}
             alt={`${car.brand} ${car.model}`}
-            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover object-bottom group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-br from-gray-100 to-gray-200">

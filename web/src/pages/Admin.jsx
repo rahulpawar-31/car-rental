@@ -470,7 +470,7 @@ function AvailabilityTab() {
             >
               <div className="h-36 bg-gray-100 relative">
                 {car.images?.[0]?.url ? (
-                  <img src={car.images[0].url} alt="" className="w-full h-full object-cover" />
+                  <img src={car.images[0].url} alt="" className="w-full h-full object-cover object-bottom" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-4xl">🚗</div>
                 )}
@@ -1558,7 +1558,7 @@ function CarsTab() {
                           <img
                             src={car.images[0].url}
                             alt=""
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover object-bottom"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-base">

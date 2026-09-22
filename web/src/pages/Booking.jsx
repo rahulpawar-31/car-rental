@@ -223,7 +223,7 @@ export default function Booking() {
           <img
             src={primaryImg.url}
             alt={`${car.brand} ${car.model}`}
-            className="absolute inset-0 w-full h-full object-cover object-center"
+            className="absolute inset-0 w-full h-full object-cover object-bottom"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-teal-900" />
@@ -670,7 +670,7 @@ export default function Booking() {
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               <div className="h-44 bg-gray-100 overflow-hidden">
                 {primaryImg ? (
-                  <img src={primaryImg.url} alt="" className="w-full h-full object-cover" />
+                  <img src={primaryImg.url} alt="" className="w-full h-full object-cover object-bottom" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-5xl">🚗</div>
                 )}

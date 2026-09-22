@@ -57,7 +57,7 @@ export default function BookingConfirmation() {
         <div className="flex items-center gap-4 p-5 border-b border-gray-100">
           <div className="w-20 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
             {car?.images?.[0]?.url ? (
-              <img src={car.images[0].url} alt="" className="w-full h-full object-cover" />
+              <img src={car.images[0].url} alt="" className="w-full h-full object-cover object-bottom" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-2xl">🚗</div>
             )}

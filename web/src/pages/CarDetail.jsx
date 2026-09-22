@@ -442,7 +442,7 @@ export default function CarDetail() {
           <img
             src={heroImg.url}
             alt={`${car.brand} ${car.model}`}
-            className="absolute inset-0 w-full h-full object-cover object-center"
+            className="absolute inset-0 w-full h-full object-cover object-bottom"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-8xl">
@@ -498,7 +498,7 @@ export default function CarDetail() {
                     <img
                       src={img.url}
                       alt=""
-                      className="w-full h-full object-cover object-center bg-gray-100"
+                      className="w-full h-full object-cover object-bottom bg-gray-100"
                     />
                   </button>
                 ))}
@@ -1009,7 +1009,7 @@ export default function CarDetail() {
                         <img
                           src={img.url}
                           alt=""
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          className="w-full h-full object-cover object-bottom group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-4xl">

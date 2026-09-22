@@ -168,7 +168,7 @@ export default function Payment() {
                   <img
                     src={booking.car.images[0].url}
                     alt=""
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover object-bottom"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xl">🚗</div>
