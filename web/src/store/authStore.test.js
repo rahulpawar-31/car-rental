@@ -31,25 +31,43 @@ vi.mock('../api/auth', () => ({
 import * as authApi from '../api/auth'
 
 function seedSignedInState() {
-  localStorage.setItem('accessToken', 'stale-token')
-  useAuthStore.setState({ user: { id: 'u1', name: 'Jane' }, accessToken: 'stale-token' })
+  useAuthStore.setState({ user: { id: 'u1', name: 'Jane' } })
 }
 
-describe('authStore clearSession', () => {
+describe('authStore token storage', () => {
   beforeEach(() => {
-    useAuthStore.setState({ user: null, accessToken: null, isLoading: false })
+    useAuthStore.setState({ user: null, isLoading: false })
     localStorage.clear()
     vi.clearAllMocks()
   })
 
-  test('resets user/accessToken to null and removes the token from localStorage', () => {
+  test('login() keeps the user but never writes a token to localStorage or the store', async () => {
+    authApi.login.mockResolvedValueOnce({
+      data: { data: { user: { id: 'u1' }, accessToken: 'secret-jwt' } },
+    })
+
+    await useAuthStore.getState().login({ email: 'a@b.co', password: 'pw' })
+
+    expect(useAuthStore.getState().user).toEqual({ id: 'u1' })
+    expect(useAuthStore.getState().accessToken).toBeUndefined()
+    expect(localStorage.getItem('accessToken')).toBeNull()
+    expect(localStorage.getItem('auth')).not.toContain('secret-jwt')
+  })
+})
+
+describe('authStore clearSession', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: null, isLoading: false })
+    localStorage.clear()
+    vi.clearAllMocks()
+  })
+
+  test('resets user to null', () => {
     seedSignedInState()
 
     useAuthStore.getState().clearSession()
 
     expect(useAuthStore.getState().user).toBeNull()
-    expect(useAuthStore.getState().accessToken).toBeNull()
-    expect(localStorage.getItem('accessToken')).toBeNull()
   })
 
   test('logout() clears the session even when the backend logout call rejects', async () => {
@@ -60,8 +78,6 @@ describe('authStore clearSession', () => {
 
     expect(authApi.logout).toHaveBeenCalled()
     expect(useAuthStore.getState().user).toBeNull()
-    expect(useAuthStore.getState().accessToken).toBeNull()
-    expect(localStorage.getItem('accessToken')).toBeNull()
   })
 
   test('fetchMe() clears the session (same shape as clearSession) when getMe() fails', async () => {
@@ -71,7 +87,5 @@ describe('authStore clearSession', () => {
     await useAuthStore.getState().fetchMe()
 
     expect(useAuthStore.getState().user).toBeNull()
-    expect(useAuthStore.getState().accessToken).toBeNull()
-    expect(localStorage.getItem('accessToken')).toBeNull()
   })
 })

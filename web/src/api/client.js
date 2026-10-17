@@ -9,16 +9,10 @@ const api = axios.create({
 let isRefreshing = false
 let failedQueue = []
 
-const processQueue = (error, token = null) => {
-  failedQueue.forEach(prom => error ? prom.reject(error) : prom.resolve(token))
+const processQueue = (error) => {
+  failedQueue.forEach(prom => error ? prom.reject(error) : prom.resolve())
   failedQueue = []
 }
-
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('accessToken')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
 
 api.interceptors.response.use(
   res => res,
@@ -29,25 +23,20 @@ api.interceptors.response.use(
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
-        }).then(token => {
-          original.headers.Authorization = `Bearer ${token}`
-          return api(original)
-        })
+        }).then(() => api(original))
       }
       original._retry = true
       isRefreshing = true
       try {
-        const { data } = await axios.post(`${import.meta.env.VITE_API_URL || '/api/v1'}/auth/refresh-token`, {}, { withCredentials: true })
-        const token = data.data.accessToken
-        localStorage.setItem('accessToken', token)
-        processQueue(null, token)
-        original.headers.Authorization = `Bearer ${token}`
+        // The server rotates the httpOnly auth cookies; nothing to store client-side.
+        await axios.post(`${import.meta.env.VITE_API_URL || '/api/v1'}/auth/refresh-token`, {}, { withCredentials: true })
+        processQueue(null)
         return api(original)
       } catch (e) {
-        processQueue(e, null)
+        processQueue(e)
         // Route through the store's own clearSession action instead of
         // setState-ing its fields directly, so authStore stays the single
-        // writer of its own state (and localStorage stays in sync with it).
+        // writer of its own state.
         useAuthStore.getState().clearSession()
         return Promise.reject(e)
       } finally {

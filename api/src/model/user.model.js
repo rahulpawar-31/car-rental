@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     otp: { type: String, select: false },
     otpExpiry: { type: Date, select: false },
+    otpAttempts: { type: Number, default: 0, select: false },
     refreshToken: { type: String, select: false },
     savedCars: [{ type: mongoose.Schema.Types.ObjectId, ref: "Car" }],
     savedLocations: [{ type: mongoose.Schema.Types.ObjectId, ref: "Location" }],

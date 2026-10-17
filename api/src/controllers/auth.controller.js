@@ -11,6 +11,8 @@ import {
 import { generateOTP } from "../utils/otp.utils.js";
 import { sendOtpEmail, sendWelcomeEmail } from "../utils/email.utils.js";
 
+const MAX_OTP_ATTEMPTS = 5;
+
 export const register = async (req, res) => {
   const { name, email, password, phone } = req.body;
 
@@ -123,6 +125,7 @@ export const forgotPassword = async (req, res) => {
   const otp = generateOTP();
   user.otp = otp;
   user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+  user.otpAttempts = 0;
   await user.save({ validateBeforeSave: false });
 
   await sendOtpEmail(email, otp, user.name);
@@ -133,13 +136,27 @@ export const forgotPassword = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
 
-  const user = await User.findOne({ email }).select("+otp +otpExpiry");
-  if (!user || user.otp !== otp || !user.otpExpiry || user.otpExpiry < Date.now()) {
+  const user = await User.findOne({ email }).select("+otp +otpExpiry +otpAttempts");
+  if (!user || !user.otp || !user.otpExpiry || user.otpExpiry < Date.now()) {
+    throw new AppError("Invalid or expired OTP", 400);
+  }
+
+  // Per-account cap, independent of the per-IP limiter, so a 6-digit OTP can't be
+  // brute-forced from many addresses. Burning the OTP forces a fresh forgot-password.
+  if (user.otp !== otp) {
+    user.otpAttempts = (user.otpAttempts || 0) + 1;
+    if (user.otpAttempts >= MAX_OTP_ATTEMPTS) {
+      user.otp = undefined;
+      user.otpExpiry = undefined;
+      user.otpAttempts = 0;
+    }
+    await user.save({ validateBeforeSave: false });
     throw new AppError("Invalid or expired OTP", 400);
   }
 
   user.otp = undefined;
   user.otpExpiry = undefined;
+  user.otpAttempts = 0;
   await user.save({ validateBeforeSave: false });
 
   const resetToken = generateResetToken(user._id);
