@@ -2,19 +2,16 @@ import { verifyAccessToken } from "../utils/jwt.utils.js";
 import User from "../model/user.model.js";
 import { AppError } from "./errorHandler.js";
 
-// Shared by protect and optionalAuth so both enforce the same token checks.
-// Throws AppError (or a jwt error) when the request has no valid, current credentials.
-const resolveUser = async (req) => {
-  let token;
-
+const extractToken = (req) => {
   if (req.headers.authorization?.startsWith("Bearer ")) {
-    token = req.headers.authorization.split(" ")[1];
-  } else if (req.cookies?.accessToken) {
-    token = req.cookies.accessToken;
+    return req.headers.authorization.split(" ")[1];
   }
+  return req.cookies?.accessToken;
+};
 
-  if (!token) throw new AppError("Authentication required. Please log in.", 401);
-
+// Shared by protect and optionalAuth so both enforce the same token checks.
+// Throws AppError (or a jwt error) when the token is not valid and current.
+const resolveUser = async (token) => {
   const decoded = verifyAccessToken(token);
   // Password-reset tokens are single-purpose (POST /auth/reset-password only) — reject
   // them here so a leaked reset token can't be replayed as a general bearer token.
@@ -31,7 +28,10 @@ const resolveUser = async (req) => {
 };
 
 export const protect = async (req, res, next) => {
-  req.user = await resolveUser(req);
+  const token = extractToken(req);
+  if (!token) throw new AppError("Authentication required. Please log in.", 401);
+
+  req.user = await resolveUser(token);
   next();
 };
 
@@ -45,8 +45,11 @@ export const authorize = (...roles) => {
 };
 
 export const optionalAuth = async (req, res, next) => {
+  const token = extractToken(req);
+  if (!token) return next();
+
   try {
-    req.user = await resolveUser(req);
+    req.user = await resolveUser(token);
   } catch {
     // ignore auth errors for optional auth — the request proceeds as anonymous
   }
