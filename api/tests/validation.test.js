@@ -1,0 +1,144 @@
+import { describe, it, before, after, mock } from "node:test";
+import assert from "node:assert/strict";
+import http from "node:http";
+import "express-async-errors"; // same as app.js: lets async controllers reject into errorHandler
+import express from "express";
+import jwt from "jsonwebtoken";
+
+process.env.JWT_SECRET = "test-secret";
+process.env.RAZORPAY_WEBHOOK_SECRET = "whsec_test";
+
+const { default: User } = await import("../src/model/user.model.js");
+const { default: bookingRoutes } = await import("../src/routes/booking.routes.js");
+const { default: paymentRoutes } = await import("../src/routes/payment.routes.js");
+const { errorHandler } = await import("../src/middleware/errorHandler.js");
+const { createBookingBody, applyCouponBody, listBookingsQuery } = await import(
+  "../src/validation/booking.validation.js"
+);
+const { confirmPaymentBody } = await import("../src/validation/payment.validation.js");
+
+const ID = "64b000000000000000000001";
+
+describe("booking schemas", () => {
+  const valid = { carId: ID, pickupDate: "2030-01-01", dropDate: "2030-01-03" };
+
+  it("accepts the payload the web client sends and drops fields the model doesn't store", () => {
+    const parsed = createBookingBody.parse({
+      ...valid,
+      rentalType: "hour",
+      totalHours: "5",
+      couponCode: "SAVE10",
+      notes: "hi",
+      driverDetails: { name: "Jane", email: "j@x.com", phone: "999" },
+      pickupLocationId: ID,
+      isAdmin: true,
+    });
+    assert.equal(parsed.totalHours, 5);
+    assert.deepEqual(parsed.driverDetails, { name: "Jane", phone: "999" });
+    assert.equal("isAdmin" in parsed, false);
+  });
+
+  it("rejects an operator object where an id is expected (NoSQL injection)", () => {
+    const result = createBookingBody.safeParse({ ...valid, carId: { $ne: null } });
+    assert.equal(result.success, false);
+  });
+
+  it("rejects missing dates, bad ids, bad rentalType and non-positive hours", () => {
+    for (const bad of [
+      { carId: ID, dropDate: "2030-01-03" },
+      { ...valid, carId: "not-an-id" },
+      { ...valid, rentalType: "weekly" },
+      { ...valid, rentalType: "hour", totalHours: 0 },
+    ]) {
+      assert.equal(createBookingBody.safeParse(bad).success, false, JSON.stringify(bad));
+    }
+  });
+
+  it("allows applyCoupon without dropDate/rentalType (hourly callers and older clients)", () => {
+    assert.equal(applyCouponBody.safeParse({ code: "X", carId: ID, pickupDate: "2030-01-01" }).success, true);
+  });
+
+  it("coerces and bounds list queries", () => {
+    assert.deepEqual(listBookingsQuery.parse({}), { page: 1, limit: 10 });
+    assert.equal(listBookingsQuery.parse({ page: "2", limit: "50" }).limit, 50);
+    assert.equal(listBookingsQuery.safeParse({ limit: "1000" }).success, false);
+    assert.equal(listBookingsQuery.safeParse({ page: "abc" }).success, false);
+  });
+});
+
+describe("payment schemas", () => {
+  it("requires all three Razorpay confirmation fields as strings", () => {
+    const ok = { razorpayPaymentId: "pay_1", razorpayOrderId: "order_1", razorpaySignature: "sig" };
+    assert.equal(confirmPaymentBody.safeParse(ok).success, true);
+    assert.equal(confirmPaymentBody.safeParse({ ...ok, razorpaySignature: "" }).success, false);
+    assert.equal(confirmPaymentBody.safeParse({ ...ok, razorpayOrderId: { $ne: 1 } }).success, false);
+  });
+});
+
+describe("validated routes (over HTTP, auth stubbed, no database)", () => {
+  let server;
+  let base;
+  let token;
+
+  before(async () => {
+    mock.method(User, "findById", () => ({
+      select: async () => new User({ _id: ID, isActive: true, role: "user" }),
+    }));
+    token = jwt.sign({ id: ID, role: "user" }, process.env.JWT_SECRET);
+
+    const app = express();
+    app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
+    app.use("/bookings", bookingRoutes);
+    app.use("/payments", paymentRoutes);
+    app.use(errorHandler);
+    server = http.createServer(app);
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    base = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  after(async () => {
+    mock.restoreAll();
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  const call = (method, path, body) =>
+    fetch(base + path, {
+      method,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+  it("POST /bookings returns 400 with field errors, before touching the database", async () => {
+    const res = await call("POST", "/bookings", { carId: { $ne: null }, pickupDate: "2030-01-01" });
+    assert.equal(res.status, 400);
+    const json = await res.json();
+    assert.equal(json.success, false);
+    assert.equal(json.message, json.errors[0].message);
+    assert.deepEqual(json.errors.map((e) => e.field).sort(), ["carId", "dropDate"]);
+  });
+
+  it("GET /bookings/:id rejects a malformed id", async () => {
+    const res = await call("GET", "/bookings/not-an-id");
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).errors[0].field, "id");
+  });
+
+  it("GET /bookings rejects an out-of-range limit", async () => {
+    assert.equal((await call("GET", "/bookings?limit=5000")).status, 400);
+  });
+
+  it("PATCH /bookings/:id/reschedule requires both dates", async () => {
+    assert.equal((await call("PATCH", `/bookings/${ID}/reschedule`, { pickupDate: "2030-01-01" })).status, 400);
+  });
+
+  it("POST /payments/create-intent and /confirm validate their bodies", async () => {
+    assert.equal((await call("POST", "/payments/create-intent", {})).status, 400);
+    assert.equal((await call("POST", "/payments/confirm", { razorpayOrderId: "o" })).status, 400);
+  });
+
+  it("leaves the Razorpay webhook unvalidated (it is signature-verified, not schema-shaped)", async () => {
+    const res = await fetch(`${base}/payments/webhook`, { method: "POST", headers: { "Content-Type": "application/json", "x-razorpay-signature": "bad" }, body: "{}" });
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).message, "Invalid webhook signature");
+  });
+});
