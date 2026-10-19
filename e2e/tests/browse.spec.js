@@ -55,5 +55,8 @@ test("browse the fleet and open a car's detail page", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Honda City/ }).first()).toBeVisible();
   await expect(page.getByText(/3,000/).first()).toBeVisible();
 
+  // The detail page fires background calls (similar cars, booked dates, locations) that swallow
+  // their errors, so let them settle before checking none hit the 500 fallback.
+  await page.waitForLoadState("networkidle");
   expect(unmocked, "every API call in this flow should be mocked").toEqual([]);
 });

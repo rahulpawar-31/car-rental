@@ -18,7 +18,8 @@ export default defineConfig({
     command: `npm run build && npm run preview -- --host 127.0.0.1 --port ${PORT} --strictPort`,
     cwd: "../web",
     url: `http://127.0.0.1:${PORT}`,
-    reuseExistingServer: !process.env.CI,
+    // Always build and serve fresh: reusing a leftover `vite preview` would test a stale dist/.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

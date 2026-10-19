@@ -41,7 +41,7 @@ car/
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - MongoDB Atlas cluster (or local MongoDB on port `27017`)
 - Cloudinary account
 - Razorpay account (test keys work for development)
