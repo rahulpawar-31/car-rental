@@ -9,9 +9,9 @@ const extractToken = (req) => {
   return req.cookies?.accessToken;
 };
 
-// Shared by protect and optionalAuth so both enforce the same token checks.
-// Throws AppError (or a jwt error) when the token is not valid and current.
-const resolveUser = async (token) => {
+// Single source of truth for "is this token currently valid for a live user", shared
+// by protect and optionalAuth so the two can't drift apart.
+export const resolveUserFromToken = async (token) => {
   const decoded = verifyAccessToken(token);
   // Password-reset tokens are single-purpose (POST /auth/reset-password only) — reject
   // them here so a leaked reset token can't be replayed as a general bearer token.
@@ -23,7 +23,6 @@ const resolveUser = async (token) => {
   if (user.changedPasswordAfter(decoded.iat)) {
     throw new AppError("Password was recently changed. Please log in again.", 401);
   }
-
   return user;
 };
 
@@ -31,7 +30,7 @@ export const protect = async (req, res, next) => {
   const token = extractToken(req);
   if (!token) throw new AppError("Authentication required. Please log in.", 401);
 
-  req.user = await resolveUser(token);
+  req.user = await resolveUserFromToken(token);
   next();
 };
 
@@ -45,13 +44,11 @@ export const authorize = (...roles) => {
 };
 
 export const optionalAuth = async (req, res, next) => {
-  const token = extractToken(req);
-  if (!token) return next();
-
   try {
-    req.user = await resolveUser(token);
+    const token = extractToken(req);
+    if (token) req.user = await resolveUserFromToken(token);
   } catch {
-    // ignore auth errors for optional auth — the request proceeds as anonymous
+    // ignore auth errors for optional auth
   }
   next();
 };

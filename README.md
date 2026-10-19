@@ -87,6 +87,12 @@ EMAIL_FROM=onboarding@resend.dev
 # Rate limiting
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX=100
+
+# Auth rate limiting (optional; defaults shown)
+AUTH_RATE_LIMIT_WINDOW_MS=900000        # login / verify-otp / reset-password: failed attempts per window per IP
+AUTH_RATE_LIMIT_MAX=10
+OTP_REQUEST_RATE_LIMIT_WINDOW_MS=3600000  # forgot-password: requests per window per IP
+OTP_REQUEST_RATE_LIMIT_MAX=5
 ```
 
 ### 2. Seed the database (optional)
@@ -191,10 +197,13 @@ Base path: `/api/v1`
 
 ## Authentication Flow
 
-1. Login/Register returns an access token (JSON body) and sets an httpOnly refresh token cookie.
-2. The Axios client attaches `Authorization: Bearer <token>` to every request.
-3. On a `401`, the client silently POSTs to `/auth/refresh-token` (cookie sent automatically) and retries the original request with the new token.
-4. Zustand persists the access token and user object to survive page refreshes.
+1. Login/Register sets two httpOnly cookies, `accessToken` and `refreshToken` (`sameSite=strict`, `secure` in production). The JSON body also includes the access token for non-browser clients.
+2. The web app is cookie-only: the Axios client sends requests with `withCredentials` and never reads, stores or attaches the token. The API also accepts `Authorization: Bearer <token>`, which API and mobile clients can use instead of cookies.
+3. On a `401`, the client silently POSTs to `/auth/refresh-token` (refresh cookie sent automatically). The server rotates both cookies and the original request is retried.
+4. Zustand persists only the `user` object to survive page refreshes. On startup the app calls `/auth/me`, and if the cookies are gone or invalid the session is cleared.
+5. Because the cookies are `sameSite=strict`, the web app and the API must be served from the same site (for example via a reverse proxy or a shared parent domain). On different sites the browser will not send the cookies.
+
+Brute-force protection: `login`, `verify-otp` and `reset-password` allow a limited number of failed attempts per IP (successful requests aren't counted), `forgot-password` limits every request per IP, and each OTP is burned after 5 wrong guesses.
 
 ## Booking & Payment Flow
 
