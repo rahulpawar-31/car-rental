@@ -11,6 +11,8 @@ import {
 import { generateOTP } from "../utils/otp.utils.js";
 import { sendOtpEmail, sendWelcomeEmail } from "../utils/email.utils.js";
 
+const MAX_OTP_ATTEMPTS = 5;
+
 export const register = async (req, res) => {
   const { name, email, password, phone } = req.body;
 
@@ -123,6 +125,7 @@ export const forgotPassword = async (req, res) => {
   const otp = generateOTP();
   user.otp = otp;
   user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+  user.otpAttempts = 0;
   await user.save({ validateBeforeSave: false });
 
   await sendOtpEmail(email, otp, user.name);
@@ -133,16 +136,32 @@ export const forgotPassword = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
 
-  const user = await User.findOne({ email }).select("+otp +otpExpiry");
-  if (!user || user.otp !== otp || !user.otpExpiry || user.otpExpiry < Date.now()) {
+  // Reserve an attempt atomically before comparing, so parallel guesses can't all read the
+  // same counter and slip past the cap: at most MAX_OTP_ATTEMPTS guesses are ever compared
+  // against one OTP. A per-account cap, independent of the per-IP limiter, also stops a
+  // 6-digit OTP being brute-forced from many addresses.
+  const reserved = await User.findOneAndUpdate(
+    { email, otp: { $ne: null }, otpExpiry: { $gt: new Date() }, otpAttempts: { $lt: MAX_OTP_ATTEMPTS } },
+    { $inc: { otpAttempts: 1 } },
+    { new: true }
+  ).select("+otp +otpAttempts");
+  if (!reserved) throw new AppError("Invalid or expired OTP", 400);
+
+  const burn = { $unset: { otp: 1, otpExpiry: 1 }, $set: { otpAttempts: 0 } };
+
+  if (reserved.otp !== otp) {
+    // Burning the OTP forces a fresh forgot-password once the cap is reached.
+    if (reserved.otpAttempts >= MAX_OTP_ATTEMPTS) {
+      await User.updateOne({ _id: reserved._id, otp: reserved.otp }, burn);
+    }
     throw new AppError("Invalid or expired OTP", 400);
   }
 
-  user.otp = undefined;
-  user.otpExpiry = undefined;
-  await user.save({ validateBeforeSave: false });
+  // Consume atomically so two parallel correct guesses can't both mint a reset token.
+  const consumed = await User.findOneAndUpdate({ _id: reserved._id, otp: reserved.otp }, burn);
+  if (!consumed) throw new AppError("Invalid or expired OTP", 400);
 
-  const resetToken = generateResetToken(user._id);
+  const resetToken = generateResetToken(reserved._id);
   res.json({ success: true, message: "OTP verified", data: { resetToken } });
 };
 
