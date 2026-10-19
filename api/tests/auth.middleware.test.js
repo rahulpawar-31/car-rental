@@ -7,68 +7,149 @@ process.env.JWT_SECRET = "test-secret";
 const { protect, optionalAuth } = await import("../src/middleware/auth.middleware.js");
 const { default: User } = await import("../src/model/user.model.js");
 
-function tokenFor(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
+const NOW = Math.floor(Date.now() / 1000);
+
+function tokenIssuedAt(iat, payload = { id: "u1", role: "user" }) {
+  return jwt.sign({ ...payload, iat }, process.env.JWT_SECRET);
 }
 
-function stubUser(user) {
-  mock.method(User, "findById", () => ({ select: async () => user }));
+function fakeUser({ passwordChangedAt, isActive = true } = {}) {
+  return new User({ _id: "64b000000000000000000001", isActive, passwordChangedAt });
 }
 
-const liveUser = { _id: "u1", isActive: true, changedPasswordAfter: () => false };
-const staleUser = { _id: "u1", isActive: true, changedPasswordAfter: () => true };
+let selectArgs;
 
-describe("auth middleware", () => {
+function stubFindById(user) {
+  selectArgs = undefined;
+  // Behaves like a mongoose Query: awaitable directly, or via .select(...) first. Without
+  // .select("+passwordChangedAt") the real model omits that field (select: false).
+  mock.method(User, "findById", () => {
+    const withoutHiddenField = fakeUser({ isActive: user?.isActive });
+    return {
+      select: async (fields) => {
+        selectArgs = fields;
+        return user;
+      },
+      then: (resolve, reject) => Promise.resolve(withoutHiddenField).then(resolve, reject),
+    };
+  });
+}
+
+function reqWithToken(token) {
+  return { headers: { authorization: `Bearer ${token}` }, cookies: {} };
+}
+
+describe("optionalAuth", () => {
   beforeEach(() => mock.restoreAll());
   afterEach(() => mock.restoreAll());
 
-  describe("protect", () => {
-    it("rejects a token issued before the last password change", async () => {
-      stubUser(staleUser);
-      const req = { headers: { authorization: `Bearer ${tokenFor({ id: "u1", role: "user" })}` } };
-      await assert.rejects(() => protect(req, {}, () => {}), /Password was recently changed/);
-    });
-
-    it("rejects password-reset tokens", async () => {
-      stubUser(liveUser);
-      const req = { headers: { authorization: `Bearer ${tokenFor({ id: "u1", role: "reset" })}` } };
-      await assert.rejects(() => protect(req, {}, () => {}), /Invalid or expired token/);
-    });
+  it("attaches the user for a valid token", async () => {
+    const user = fakeUser();
+    stubFindById(user);
+    const req = reqWithToken(tokenIssuedAt(NOW));
+    let called = false;
+    await optionalAuth(req, {}, () => (called = true));
+    assert.equal(called, true);
+    assert.equal(req.user, user);
+    assert.equal(selectArgs, "+passwordChangedAt");
   });
 
-  describe("optionalAuth", () => {
-    it("attaches the user for a valid token", async () => {
-      stubUser(liveUser);
-      const req = { headers: { authorization: `Bearer ${tokenFor({ id: "u1", role: "user" })}` } };
-      let called = false;
-      await optionalAuth(req, {}, () => { called = true; });
-      assert.equal(req.user, liveUser);
-      assert.equal(called, true);
-    });
+  it("treats a token issued before a password change as anonymous", async () => {
+    stubFindById(fakeUser({ passwordChangedAt: new Date((NOW + 60) * 1000) }));
+    const req = reqWithToken(tokenIssuedAt(NOW - 3600));
+    let called = false;
+    await optionalAuth(req, {}, () => (called = true));
+    assert.equal(called, true);
+    assert.equal(req.user, undefined);
+  });
 
-    it("treats a token issued before the last password change as anonymous", async () => {
-      stubUser(staleUser);
-      const req = { headers: { authorization: `Bearer ${tokenFor({ id: "u1", role: "user" })}` } };
-      let called = false;
-      await optionalAuth(req, {}, () => { called = true; });
-      assert.equal(req.user, undefined);
-      assert.equal(called, true);
-    });
+  it("treats an inactive user, a reset token and a missing token as anonymous", async () => {
+    stubFindById(fakeUser({ isActive: false }));
+    const inactive = reqWithToken(tokenIssuedAt(NOW));
+    await optionalAuth(inactive, {}, () => {});
+    assert.equal(inactive.user, undefined);
 
-    it("treats a deactivated user, a reset token and a missing token as anonymous", async () => {
-      for (const [user, payload] of [
-        [{ ...liveUser, isActive: false }, { id: "u1", role: "user" }],
-        [liveUser, { id: "u1", role: "reset" }],
-      ]) {
-        mock.restoreAll();
-        stubUser(user);
-        const req = { headers: { authorization: `Bearer ${tokenFor(payload)}` } };
-        await optionalAuth(req, {}, () => {});
-        assert.equal(req.user, undefined);
-      }
-      const req = { headers: {} };
-      await optionalAuth(req, {}, () => {});
+    mock.restoreAll();
+    stubFindById(fakeUser());
+    const reset = reqWithToken(tokenIssuedAt(NOW, { id: "u1", role: "reset" }));
+    await optionalAuth(reset, {}, () => {});
+    assert.equal(reset.user, undefined);
+
+    const none = { headers: {}, cookies: {} };
+    await optionalAuth(none, {}, () => {});
+    assert.equal(none.user, undefined);
+  });
+});
+
+describe("optionalAuth with bad credentials", () => {
+  beforeEach(() => mock.restoreAll());
+  afterEach(() => mock.restoreAll());
+
+  it("treats malformed, wrongly signed and expired tokens, and a deleted user, as anonymous", async () => {
+    stubFindById(fakeUser());
+    const bad = [
+      "not-a-jwt",
+      jwt.sign({ id: "u1", role: "user" }, "wrong-secret"),
+      jwt.sign({ id: "u1", role: "user", iat: NOW - 7200, exp: NOW - 3600 }, process.env.JWT_SECRET),
+    ];
+    for (const token of bad) {
+      const req = reqWithToken(token);
+      let called = false;
+      await optionalAuth(req, {}, () => (called = true));
+      assert.equal(called, true);
       assert.equal(req.user, undefined);
+    }
+
+    mock.restoreAll();
+    stubFindById(null);
+    const gone = reqWithToken(tokenIssuedAt(NOW));
+    await optionalAuth(gone, {}, () => {});
+    assert.equal(gone.user, undefined);
+  });
+
+  it("skips the user lookup when there is no token", async () => {
+    const findById = mock.method(User, "findById", () => {
+      throw new Error("should not be called");
     });
+    await optionalAuth({ headers: {}, cookies: {} }, {}, () => {});
+    assert.equal(findById.mock.callCount(), 0);
+  });
+});
+
+describe("protect", () => {
+  beforeEach(() => mock.restoreAll());
+  afterEach(() => mock.restoreAll());
+
+  it("rejects a token issued before a password change", async () => {
+    stubFindById(fakeUser({ passwordChangedAt: new Date((NOW + 60) * 1000) }));
+    await assert.rejects(
+      protect(reqWithToken(tokenIssuedAt(NOW - 3600)), {}, () => {}),
+      { statusCode: 401 }
+    );
+  });
+
+  it("attaches the user for a valid token", async () => {
+    const user = fakeUser();
+    stubFindById(user);
+    const req = reqWithToken(tokenIssuedAt(NOW));
+    await protect(req, {}, () => {});
+    assert.equal(req.user, user);
+  });
+
+  it("rejects a reset-role token, a bad signature, an expired token, a deleted user and a missing token", async () => {
+    stubFindById(fakeUser());
+    const rejected = [
+      tokenIssuedAt(NOW, { id: "u1", role: "reset" }),
+      jwt.sign({ id: "u1", role: "user" }, "wrong-secret"),
+      jwt.sign({ id: "u1", role: "user", iat: NOW - 7200, exp: NOW - 3600 }, process.env.JWT_SECRET),
+    ];
+    for (const token of rejected) {
+      await assert.rejects(protect(reqWithToken(token), {}, () => {}));
+    }
+
+    mock.restoreAll();
+    stubFindById(null);
+    await assert.rejects(protect(reqWithToken(tokenIssuedAt(NOW)), {}, () => {}), { statusCode: 401 });
+    await assert.rejects(protect({ headers: {}, cookies: {} }, {}, () => {}), { statusCode: 401 });
   });
 });
