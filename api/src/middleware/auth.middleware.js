@@ -2,7 +2,9 @@ import { verifyAccessToken } from "../utils/jwt.utils.js";
 import User from "../model/user.model.js";
 import { AppError } from "./errorHandler.js";
 
-export const protect = async (req, res, next) => {
+// Shared by protect and optionalAuth so both enforce the same token checks.
+// Throws AppError (or a jwt error) when the request has no valid, current credentials.
+const resolveUser = async (req) => {
   let token;
 
   if (req.headers.authorization?.startsWith("Bearer ")) {
@@ -25,7 +27,11 @@ export const protect = async (req, res, next) => {
     throw new AppError("Password was recently changed. Please log in again.", 401);
   }
 
-  req.user = user;
+  return user;
+};
+
+export const protect = async (req, res, next) => {
+  req.user = await resolveUser(req);
   next();
 };
 
@@ -40,21 +46,9 @@ export const authorize = (...roles) => {
 
 export const optionalAuth = async (req, res, next) => {
   try {
-    let token;
-    if (req.headers.authorization?.startsWith("Bearer ")) {
-      token = req.headers.authorization.split(" ")[1];
-    } else if (req.cookies?.accessToken) {
-      token = req.cookies.accessToken;
-    }
-    if (token) {
-      const decoded = verifyAccessToken(token);
-      if (decoded.role !== "reset") {
-        const user = await User.findById(decoded.id);
-        if (user && user.isActive) req.user = user;
-      }
-    }
+    req.user = await resolveUser(req);
   } catch {
-    // ignore auth errors for optional auth
+    // ignore auth errors for optional auth — the request proceeds as anonymous
   }
   next();
 };
