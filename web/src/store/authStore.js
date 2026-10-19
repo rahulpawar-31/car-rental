@@ -3,26 +3,22 @@ import { persist } from 'zustand/middleware'
 import * as authApi from '../api/auth'
 import { getErrorMessage } from '../api/errors'
 
+// Earlier versions kept the token here; drop any copy left over from a previous session.
+try { localStorage.removeItem('accessToken') } catch { /* storage unavailable */ }
+
 const useAuthStore = create(
   persist(
     (set, get) => ({
       user: null,
-      accessToken: null,
       isLoading: false,
 
       setUser: (user) => set({ user }),
-      setToken: (token) => {
-        localStorage.setItem('accessToken', token)
-        set({ accessToken: token })
-      },
 
       login: async (credentials) => {
         set({ isLoading: true })
         try {
           const { data } = await authApi.login(credentials)
-          const { user, accessToken } = data.data
-          localStorage.setItem('accessToken', accessToken)
-          set({ user, accessToken, isLoading: false })
+          set({ user: data.data.user, isLoading: false })
           return { success: true }
         } catch (err) {
           set({ isLoading: false })
@@ -34,9 +30,7 @@ const useAuthStore = create(
         set({ isLoading: true })
         try {
           const { data } = await authApi.register(userData)
-          const { user, accessToken } = data.data
-          localStorage.setItem('accessToken', accessToken)
-          set({ user, accessToken, isLoading: false })
+          set({ user: data.data.user, isLoading: false })
           return { success: true }
         } catch (err) {
           set({ isLoading: false })
@@ -44,13 +38,11 @@ const useAuthStore = create(
         }
       },
 
-      // Synchronously clears the local session (state + localStorage) without
-      // calling the backend. Shared by logout(), fetchMe()'s failure path, and
+      // Synchronously clears the local session state without calling the backend. Shared by logout(), fetchMe()'s failure path, and
       // api/client.js's response interceptor, so there's exactly one place
       // that defines what "signed out" looks like.
       clearSession: () => {
-        localStorage.removeItem('accessToken')
-        set({ user: null, accessToken: null })
+        set({ user: null })
       },
 
       logout: async () => {
@@ -72,7 +64,11 @@ const useAuthStore = create(
     }),
     {
       name: 'auth',
-      partialize: (state) => ({ user: state.user, accessToken: state.accessToken }),
+      // The access token lives only in the httpOnly cookie the API sets, so JS (and
+      // any XSS payload) can never read it. Only the non-sensitive user is persisted.
+      version: 1,
+      migrate: (persisted) => ({ user: persisted?.user ?? null }),
+      partialize: (state) => ({ user: state.user }),
     }
   )
 )
