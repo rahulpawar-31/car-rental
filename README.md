@@ -28,6 +28,7 @@ car/
 │       ├── middleware/   # Auth, error handler, multer/Cloudinary upload
 │       ├── utils/        # JWT, email, OTP, logger (Winston)
 │       └── seed.js       # Seed script (cars, locations, users)
+├── e2e/                  # Playwright smoke tests (run against the built web app, API mocked)
 └── web/                  # React + Vite frontend (port 5173)
     └── src/
         ├── api/          # Axios client + domain helpers (cars, bookings, payments…)
@@ -132,6 +133,19 @@ cd web
 npm run build      # outputs to web/dist/
 npm run preview    # serve the production build locally
 ```
+
+### End-to-end smoke tests
+
+```bash
+cd e2e
+npm ci
+npx playwright install chromium   # first run only
+npm test                          # builds web/, serves it with `vite preview`, runs the specs
+```
+
+The API is mocked at the network layer, so no database or backend is required. The full
+booking-and-payment happy path (login, book, pay with mocked Razorpay) isn't covered yet; it
+needs seeded auth state and a Razorpay checkout stub.
 
 ## Pages & Routes
 
