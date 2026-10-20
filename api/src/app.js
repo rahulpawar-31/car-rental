@@ -55,11 +55,13 @@ app.use(
 );
 
 
+// File uploads go through multer, so JSON/form bodies only carry small payloads
+// (the largest is the Razorpay webhook, well under 100kb).
 app.use(express.json({
-  limit: "10mb",
+  limit: "100kb",
   verify: (req, _res, buf) => { req.rawBody = buf },
 }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use(cookieParser());
 app.use(compression());
 
