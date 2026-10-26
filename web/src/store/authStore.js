@@ -49,9 +49,22 @@ const useAuthStore = create(
         set({ user: null })
       },
 
+      // Resolves { success }. The httpOnly cookies can only be cleared by the server, so if the
+      // call fails for a reason other than "already signed out" (offline, 5xx) the session is
+      // kept: showing "signed out" while the cookies stay valid is worse than asking to retry.
       logout: async () => {
-        try { await authApi.logout() } catch { /* ignore logout errors */ }
+        try {
+          await authApi.logout()
+        } catch (err) {
+          // 401: the server no longer accepts our cookies. The interceptor may also have cleared
+          // the session already (failed refresh). Either way there is nothing left to revoke.
+          const signedOutAlready = err?.response?.status === 401 || !get().user
+          if (!signedOutAlready) {
+            return { success: false, message: getErrorMessage(err, 'Could not log out. Please try again.') }
+          }
+        }
         get().clearSession()
+        return { success: true }
       },
 
       fetchMe: async () => {
