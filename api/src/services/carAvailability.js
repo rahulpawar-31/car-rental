@@ -1,7 +1,7 @@
 /**
  * The statuses that hold a car's dates against new bookings. Shared by
  * car.controller.js (search exclusion, booked-dates calendar, availability
- * check) and booking.controller.js (create/reschedule conflict checks) —
+ * check) and services/booking.js (create/reschedule conflict checks) —
  * previously each defined its own copy of this list.
  */
 export const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed", "active"];
@@ -9,7 +9,7 @@ export const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed", "active"];
 /**
  * Builds the Mongoose filter for "is there an active booking overlapping
  * this date range" — the predicate 5+ call sites across car.controller.js
- * and booking.controller.js had each retyped. Returns a plain filter
+ * and the booking code had each retyped. Returns a plain filter
  * object; callers still run `Booking.findOne(...)` / `.find(...)`
  * themselves and handle a conflict however that call site needs to
  * (throw, roll back a save, delete a just-created row) — this only
