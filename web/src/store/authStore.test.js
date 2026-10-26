@@ -170,3 +170,60 @@ describe('authStore clearSession', () => {
     expect(useAuthStore.getState().user).toBeNull()
   })
 })
+
+describe('authStore persisted state from older builds', () => {
+  const save = (stored) => localStorage.setItem('auth', JSON.stringify(stored))
+  const saved = () => JSON.parse(localStorage.getItem('auth'))
+
+  beforeEach(() => {
+    useAuthStore.setState({ user: null, isLoading: false })
+    localStorage.clear()
+    vi.clearAllMocks()
+  })
+
+  test('scrubs a token saved by an older build from storage as soon as the state is loaded', async () => {
+    save({ state: { user: { id: 'u1' }, accessToken: 'legacy-jwt' }, version: 0 })
+
+    await useAuthStore.persist.rehydrate()
+
+    expect(localStorage.getItem('auth')).not.toContain('legacy-jwt')
+    expect(saved()).toEqual({ state: { user: { id: 'u1' } }, version: 1 })
+  })
+
+  test('keeps the user signed in when an older state is migrated', async () => {
+    save({ state: { user: { id: 'u1', name: 'Jane' }, accessToken: 'legacy-jwt' }, version: 0 })
+
+    await useAuthStore.persist.rehydrate()
+
+    expect(useAuthStore.getState().user).toEqual({ id: 'u1', name: 'Jane' })
+    expect(useAuthStore.getState().accessToken).toBeUndefined()
+  })
+
+  test('treats an older state that has no user as signed out, and still scrubs its token', async () => {
+    save({ state: { accessToken: 'legacy-jwt' }, version: 0 })
+
+    await useAuthStore.persist.rehydrate()
+
+    expect(useAuthStore.getState().user).toBeNull()
+    expect(localStorage.getItem('auth')).not.toContain('legacy-jwt')
+  })
+
+  test('loads a current-version state as it is, without rewriting it', async () => {
+    save({ state: { user: { id: 'u1' } }, version: 1 })
+    const before = localStorage.getItem('auth')
+
+    await useAuthStore.persist.rehydrate()
+
+    expect(useAuthStore.getState().user).toEqual({ id: 'u1' })
+    expect(localStorage.getItem('auth')).toBe(before)
+  })
+
+  test('never loads a token from the stored state, even at the current version', async () => {
+    save({ state: { user: { id: 'u1' }, accessToken: 'hand-edited-jwt' }, version: 1 })
+
+    await useAuthStore.persist.rehydrate()
+
+    expect(useAuthStore.getState().user).toEqual({ id: 'u1' })
+    expect(useAuthStore.getState().accessToken).toBeUndefined()
+  })
+})
