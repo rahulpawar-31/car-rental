@@ -136,13 +136,11 @@ export const createBooking = async (req, res) => {
   res.status(201).json({ success: true, message: "Booking created", data: { booking: populatedBooking } });
 };
 
-const VALID_STATUSES = ["pending", "confirmed", "active", "completed", "cancelled", "no-show"];
-
 export const getMyBookings = async (req, res) => {
   const { page = 1, limit = 10, status } = req.query;
 
   const query = { user: req.user._id };
-  if (status && VALID_STATUSES.includes(status)) query.status = status;
+  if (status) query.status = status;
 
   const [bookings, total] = await Promise.all([
     Booking.find(query)
@@ -207,10 +205,6 @@ export const cancelBooking = async (req, res) => {
 
 export const rescheduleBooking = async (req, res) => {
   const { pickupDate, dropDate } = req.body;
-
-  if (!pickupDate || !dropDate) {
-    throw new AppError("pickupDate and dropDate are required", 400);
-  }
 
   const pickup = parseValidDate(pickupDate);
   const drop = parseValidDate(dropDate);

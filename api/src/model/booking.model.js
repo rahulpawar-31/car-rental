@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+export const BOOKING_STATUSES = ["pending", "confirmed", "active", "completed", "cancelled", "no-show"];
+
 const bookingSchema = new mongoose.Schema(
   {
     bookingNumber: { type: String, unique: true },
@@ -21,14 +23,7 @@ const bookingSchema = new mongoose.Schema(
     coupon: { type: mongoose.Schema.Types.ObjectId, ref: "Coupon" },
     status: {
       type: String,
-      enum: [
-        "pending",
-        "confirmed",
-        "active",
-        "completed",
-        "cancelled",
-        "no-show",
-      ],
+      enum: BOOKING_STATUSES,
       default: "pending",
     },
     paymentStatus: {
