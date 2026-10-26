@@ -117,13 +117,13 @@ jobs:
             e2e/test-results
           retention-days: 7
 
-  # Checks a live advisory database, not the code, so a new advisory shouldn't turn an
-  # unrelated PR red: it reports on PRs and blocks on pushes to main and the weekly run.
+  # Checks a live advisory database, not the code, so a newly published advisory can turn an
+  # unrelated PR red; the fix is usually a lockfile-only `npm audit fix`. Blocks on PRs, pushes
+  # to main and the weekly run.
   # Production dependencies only: dev-tool advisories don't ship.
   audit:
     name: Audit
     runs-on: ubuntu-latest
-    continue-on-error: ${{ github.event_name == 'pull_request' }}
 
     steps:
       - uses: actions/checkout@v4
