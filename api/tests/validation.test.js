@@ -58,6 +58,54 @@ describe("booking schemas", () => {
     assert.equal(applyCouponBody.safeParse({ code: "X", carId: ID, pickupDate: "2030-01-01" }).success, true);
   });
 
+  it("treats null and empty string on optional fields as not provided", () => {
+    const parsed = createBookingBody.parse({
+      ...valid,
+      pickupLocationId: null,
+      dropLocationId: "",
+      couponCode: null,
+      notes: "",
+      driverDetails: null,
+      rentalType: null,
+      totalHours: "",
+    });
+    for (const key of ["pickupLocationId", "dropLocationId", "couponCode", "notes", "driverDetails", "rentalType", "totalHours"]) {
+      assert.equal(parsed[key], undefined, key);
+    }
+    assert.equal(applyCouponBody.safeParse({ code: "X", carId: ID, pickupDate: "2030-01-01", dropDate: null, rentalType: "", totalHours: null }).success, true);
+  });
+
+  it("rejects dates that do not parse, but accepts timestamps", () => {
+    for (const field of ["pickupDate", "dropDate"]) {
+      assert.equal(createBookingBody.safeParse({ ...valid, [field]: "not-a-date" }).success, false, field);
+    }
+    assert.equal(applyCouponBody.safeParse({ code: "X", carId: ID, pickupDate: "not-a-date" }).success, false);
+    assert.equal(applyCouponBody.safeParse({ code: "X", carId: ID, pickupDate: "2030-01-01", dropDate: "nope" }).success, false);
+    assert.equal(createBookingBody.safeParse({ ...valid, pickupDate: 1893456000000 }).success, true);
+  });
+
+  it("validates driverDetails.licenseExpiry as a date before any side effect", () => {
+    const withExpiry = (licenseExpiry) => createBookingBody.safeParse({ ...valid, driverDetails: { licenseExpiry } });
+    assert.equal(withExpiry("banana").success, false);
+    assert.equal(withExpiry("2032-05-01").success, true);
+    assert.equal(withExpiry("").success, true);
+  });
+
+  it("only accepts plain decimal numbers for totalHours and bounds it", () => {
+    const hours = (totalHours) => createBookingBody.safeParse({ ...valid, rentalType: "hour", totalHours });
+    assert.equal(hours("5").data.totalHours, 5);
+    assert.equal(hours(2.5).data.totalHours, 2.5);
+    for (const bad of ["0x10", "1e3", [5], true, "abc", 0, -1, 721]) {
+      assert.equal(hours(bad).success, false, JSON.stringify(bad));
+    }
+  });
+
+  it("falls back to pagination defaults for empty page/limit", () => {
+    assert.deepEqual(listBookingsQuery.parse({ page: "", limit: "" }), { page: 1, limit: 10 });
+    assert.equal(listBookingsQuery.safeParse({ page: "0x10" }).success, false);
+    assert.equal(listBookingsQuery.safeParse({ limit: "1e2" }).success, false);
+  });
+
   it("coerces and bounds list queries", () => {
     assert.deepEqual(listBookingsQuery.parse({}), { page: 1, limit: 10 });
     assert.equal(listBookingsQuery.parse({ page: "2", limit: "50" }).limit, 50);

@@ -208,10 +208,6 @@ export const cancelBooking = async (req, res) => {
 export const rescheduleBooking = async (req, res) => {
   const { pickupDate, dropDate } = req.body;
 
-  if (!pickupDate || !dropDate) {
-    throw new AppError("pickupDate and dropDate are required", 400);
-  }
-
   const pickup = parseValidDate(pickupDate);
   const drop = parseValidDate(dropDate);
   if (!pickup || !drop) throw new AppError("Invalid date format", 400);
