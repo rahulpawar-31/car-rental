@@ -34,6 +34,10 @@ function seedSignedInState() {
   useAuthStore.setState({ user: { id: 'u1', name: 'Jane' } })
 }
 
+function persistedAuth() {
+  return JSON.parse(localStorage.getItem('auth'))
+}
+
 describe('authStore token storage', () => {
   beforeEach(() => {
     useAuthStore.setState({ user: null, isLoading: false })
@@ -52,6 +56,42 @@ describe('authStore token storage', () => {
     expect(useAuthStore.getState().accessToken).toBeUndefined()
     expect(localStorage.getItem('accessToken')).toBeNull()
     expect(localStorage.getItem('auth')).not.toContain('secret-jwt')
+  })
+
+  test('login() persists only the user', async () => {
+    authApi.login.mockResolvedValueOnce({
+      data: { data: { user: { id: 'u1' }, accessToken: 'secret-jwt' } },
+    })
+
+    await useAuthStore.getState().login({ email: 'a@b.co', password: 'pw' })
+
+    expect(persistedAuth().state).toEqual({ user: { id: 'u1' } })
+  })
+
+  test('register() keeps the user but never writes a token to localStorage or the store', async () => {
+    authApi.register.mockResolvedValueOnce({
+      data: { data: { user: { id: 'u2' }, accessToken: 'secret-jwt' } },
+    })
+
+    await useAuthStore.getState().register({ email: 'a@b.co' })
+
+    expect(useAuthStore.getState().user).toEqual({ id: 'u2' })
+    expect(useAuthStore.getState().accessToken).toBeUndefined()
+    expect(localStorage.getItem('accessToken')).toBeNull()
+    expect(localStorage.getItem('auth')).not.toContain('secret-jwt')
+    expect(persistedAuth().state).toEqual({ user: { id: 'u2' } })
+  })
+
+  test('rehydrating a state persisted by an older build restores the user but not its stored token', async () => {
+    localStorage.setItem(
+      'auth',
+      JSON.stringify({ state: { user: { id: 'u1' }, accessToken: 'legacy-jwt' }, version: 0 })
+    )
+
+    await useAuthStore.persist.rehydrate()
+
+    expect(useAuthStore.getState().user).toEqual({ id: 'u1' })
+    expect(useAuthStore.getState().accessToken).toBeUndefined()
   })
 })
 

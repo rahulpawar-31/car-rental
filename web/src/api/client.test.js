@@ -1,8 +1,10 @@
 import axios from 'axios'
 import api from './client'
 
+// One shared spy (not a fresh vi.fn() per getState() call) so tests can assert the session was cleared.
+const { clearSession } = vi.hoisted(() => ({ clearSession: vi.fn() }))
 vi.mock('../store/authStore', () => ({
-  default: { getState: () => ({ clearSession: vi.fn() }) },
+  default: { getState: () => ({ clearSession }) },
 }))
 
 const unauthorized = (config) =>
@@ -15,6 +17,7 @@ describe('api 401 refresh interceptor', () => {
   afterEach(() => {
     api.defaults.adapter = originalAdapter
     vi.restoreAllMocks()
+    clearSession.mockClear()
   })
 
   test('replays a request once after a successful refresh', async () => {
@@ -52,5 +55,43 @@ describe('api 401 refresh interceptor', () => {
     expect((await b).response.status).toBe(401)
     expect(hits['/b']).toBe(2)
     expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  test('sends no Authorization header; the httpOnly cookie carries auth', async () => {
+    let seen
+    api.defaults.adapter = (config) => {
+      seen = config
+      return ok(config)
+    }
+
+    await api.get('/cars')
+
+    expect(seen.headers.Authorization).toBeUndefined()
+    expect(api.defaults.withCredentials).toBe(true)
+  })
+
+  test('refreshes through the cookie and replays without sending a token', async () => {
+    const calls = []
+    api.defaults.adapter = (config) => {
+      calls.push(config)
+      return calls.length === 1 ? unauthorized(config) : ok(config)
+    }
+    const refresh = vi.spyOn(axios, 'post').mockResolvedValue({ data: { data: { accessToken: 'new-jwt' } } })
+
+    await api.get('/bookings')
+
+    expect(refresh).toHaveBeenCalledWith(expect.stringContaining('/auth/refresh-token'), {}, { withCredentials: true })
+    expect(calls).toHaveLength(2)
+    expect(calls[1].headers.Authorization).toBeUndefined()
+    expect(clearSession).not.toHaveBeenCalled()
+  })
+
+  test('clears the session and surfaces the error when the refresh itself fails', async () => {
+    api.defaults.adapter = (config) => unauthorized(config)
+    vi.spyOn(axios, 'post').mockRejectedValue(new Error('refresh 401'))
+
+    await expect(api.get('/bookings')).rejects.toThrow('refresh 401')
+
+    expect(clearSession).toHaveBeenCalledTimes(1)
   })
 })
