@@ -56,3 +56,11 @@ export const pagination = {
       .default(10)
   ),
 };
+
+// A real boolean, or the strings "true"/"false" (query strings and multipart fields arrive as text).
+export const booleanInput = (name) =>
+  z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean({ error: `${name} must be true or false` }));
+
+// Drops keys whose value ended up undefined (a blank optional field), so schemas whose output is
+// handed straight to Mongoose never carry an explicit `key: undefined`.
+export const withoutUndefined = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
