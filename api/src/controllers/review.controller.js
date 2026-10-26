@@ -82,8 +82,13 @@ export const updateReview = async (req, res) => {
   const review = await Review.findOne({ _id: req.params.id, user: req.user._id });
   if (!review) throw new AppError("Review not found", 404);
 
-  const { rating, title, comment, aspects } = req.body;
-  Object.assign(review, { rating, title, comment, aspects, isApproved: false });
+  // Only fields the request actually carries are changed: assigning an omitted field would set it
+  // to undefined, which Mongoose saves as an unset (the edit form sends just rating and comment,
+  // so that used to wipe the review's title and aspects).
+  const updates = Object.fromEntries(
+    ["rating", "title", "comment", "aspects"].filter((key) => req.body[key] !== undefined).map((key) => [key, req.body[key]])
+  );
+  Object.assign(review, updates, { isApproved: false });
   await review.save();
 
   res.json({ success: true, message: "Review updated and pending approval", data: { review } });
