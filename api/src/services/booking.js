@@ -5,6 +5,7 @@ import Payment from "../model/payment.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { sendBookingConfirmationEmail } from "../utils/email.utils.js";
 import { parseValidDate } from "../utils/date.utils.js";
+import { logger } from "../utils/logger.js";
 import { computeBookingQuote } from "./booking.quote.js";
 import { bookingConflictQuery } from "./carAvailability.js";
 
@@ -29,14 +30,20 @@ export function parseRentalWindow(pickupDate, dropDate) {
  * Request-shape rules for a rental's duration by type. This is about what the client sent
  * (not the pricing math, which lives in computeBookingQuote).
  */
-export function assertRentalSpan({ rentalType, pickup, drop, totalHours }) {
+export function assertRentalSpan({ rentalType, pickup, drop, totalHours, rescheduling = false }) {
   const durationHours = (drop - pickup) / MS_PER_HOUR;
 
   if (rentalType === "hour") {
     if (!(totalHours > 0)) throw new AppError("totalHours is required for hourly rentals", 400);
     // totalHours must match the actual pickup/drop span, since that's what blocks the car
     if (Math.abs(durationHours - totalHours) > 1) {
-      throw new AppError("totalHours must match the selected pickup/drop time range", 400);
+      // A reschedule sends no totalHours: the booking keeps its own, so it can only move.
+      throw new AppError(
+        rescheduling
+          ? `An hourly booking can only be moved to a window of the same length (${totalHours} hours)`
+          : "totalHours must match the selected pickup/drop time range",
+        400
+      );
     }
   } else if (rentalType === "airport") {
     if (durationHours > 24) {
@@ -87,9 +94,15 @@ export function deriveTracking(booking, now = new Date()) {
   return { trackingStatus, timeInfo };
 }
 
+/** Gives back a coupon use claimed for a booking that did not get created. */
+function releaseCouponClaim(couponId, userId) {
+  return Coupon.updateOne({ _id: couponId }, { $inc: { usageCount: -1 }, $pull: { usedBy: userId } });
+}
+
 /**
  * Creates a booking: availability check, coupon claim, pricing, persistence, then a race
  * recheck that rolls back (booking and coupon claim) if a concurrent request won the dates.
+ * Once the coupon is claimed, any failure before the booking exists gives the claim back.
  *
  * @param {{ user: any, input: any }} args - `user` is the authenticated user document.
  * @param {{ sendEmail?: typeof sendBookingConfirmationEmail }} [deps]
@@ -149,44 +162,56 @@ export async function createBooking({ user, input }, { sendEmail = sendBookingCo
     appliedCoupon = coupon._id;
   }
 
-  const { totalDays, baseAmount, discountAmount, taxAmount, totalAmount } = computeBookingQuote({
-    car, rentalType, pickupDate, dropDate, totalHours, coupon,
-  });
+  // The coupon is already claimed, so a failure from here until the booking exists (pricing,
+  // a Mongoose validation or cast error, a DB error) must give the claim back.
+  let booking;
+  let totalAmount;
+  try {
+    const quote = computeBookingQuote({
+      car, rentalType, pickupDate, dropDate, totalHours, coupon,
+    });
+    totalAmount = quote.totalAmount;
 
-  const booking = await Booking.create({
-    user: user._id,
-    car: carId,
-    ...(pickupLocationId && { pickupLocation: pickupLocationId }),
-    ...(dropLocationId && { dropLocation: dropLocationId }),
-    pickupDate: pickup,
-    dropDate: drop,
-    totalDays,
-    ...(rentalType === "hour" && { totalHours }),
-    rentalType: rentalType || "day",
-    pricePerDay: car.pricePerDay,
-    baseAmount,
-    discountAmount,
-    taxAmount,
-    totalAmount,
-    securityDeposit: car.securityDeposit,
-    coupon: appliedCoupon,
-    driverDetails,
-    notes,
-    status: "pending",
-  });
+    booking = await Booking.create({
+      user: user._id,
+      car: carId,
+      ...(pickupLocationId && { pickupLocation: pickupLocationId }),
+      ...(dropLocationId && { dropLocation: dropLocationId }),
+      pickupDate: pickup,
+      dropDate: drop,
+      totalDays: quote.totalDays,
+      ...(rentalType === "hour" && { totalHours }),
+      rentalType: rentalType || "day",
+      pricePerDay: car.pricePerDay,
+      baseAmount: quote.baseAmount,
+      discountAmount: quote.discountAmount,
+      taxAmount: quote.taxAmount,
+      totalAmount,
+      securityDeposit: car.securityDeposit,
+      coupon: appliedCoupon,
+      driverDetails,
+      notes,
+      status: "pending",
+    });
 
-  // Fix #10: the availability check above and this create() aren't atomic, so two concurrent
-  // requests for the same car/dates can both pass it. Re-verify now that both rows exist;
-  // whichever booking has the smaller _id (created first) wins.
-  const earlierConflict = await Booking.findOne(
-    bookingConflictQuery({ carId, pickup, drop, tieBreakBeforeId: booking._id })
-  );
-  if (earlierConflict) {
-    await Booking.deleteOne({ _id: booking._id });
-    if (appliedCoupon) {
-      await Coupon.updateOne({ _id: appliedCoupon }, { $inc: { usageCount: -1 }, $pull: { usedBy: user._id } });
+    // Fix #10: the availability check above and this create() aren't atomic, so two concurrent
+    // requests for the same car/dates can both pass it. Re-verify now that both rows exist;
+    // whichever booking has the smaller _id (created first) wins.
+    const earlierConflict = await Booking.findOne(
+      bookingConflictQuery({ carId, pickup, drop, tieBreakBeforeId: booking._id })
+    );
+    if (earlierConflict) {
+      await Booking.deleteOne({ _id: booking._id });
+      booking = null; // gone, so the catch below gives the coupon claim back
+      throw new AppError("Car is not available for the selected dates", 409);
     }
-    throw new AppError("Car is not available for the selected dates", 409);
+  } catch (err) {
+    if (appliedCoupon && !booking) {
+      await releaseCouponClaim(appliedCoupon, user._id).catch((releaseErr) =>
+        logger.error(`Could not release coupon ${appliedCoupon} claimed by user ${user._id}: ${releaseErr.message}`)
+      );
+    }
+    throw err;
   }
 
   const populatedBooking = await Booking.findById(booking._id)
@@ -273,6 +298,11 @@ export async function rescheduleUserBooking(userId, bookingId, { pickupDate, dro
     throw new AppError("Only pending or confirmed bookings can be rescheduled", 400);
   }
 
+  // The same span rules as creation, applied to the booking's own rentalType and hours: an
+  // hourly booking keeps its length (it is priced from totalHours) and an airport transfer
+  // stays within 24h.
+  assertRentalSpan({ rentalType: booking.rentalType, pickup, drop, totalHours: booking.totalHours, rescheduling: true });
+
   const conflict = await Booking.findOne(
     bookingConflictQuery({ carId: booking.car, pickup, drop, excludeBookingId: booking._id })
   );
@@ -325,14 +355,38 @@ export async function rescheduleUserBooking(userId, bookingId, { pickupDate, dro
   if (booking.paymentStatus !== "paid") booking.paymentStatus = "pending";
   await booking.save();
 
+  // Puts the booking back on its original dates and amounts with one atomic write that does not
+  // depend on this document's in-memory state. Retried once; if both attempts fail the booking
+  // is stuck on the new dates, which is logged for follow-up and reported as a 500 rather than
+  // the 409 that would tell the user nothing changed.
+  const restoreOriginal = async () => {
+    let lastErr;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await Booking.updateOne({ _id: booking._id }, { $set: original });
+        return;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    logger.error(`Could not restore booking ${booking._id} after a failed reschedule: ${lastErr.message}`);
+    throw new AppError("The reschedule conflicted and the booking could not be restored automatically. Please contact support.", 500);
+  };
+
   // Re-verify: the conflict check above and this save() aren't atomic, so a concurrent
-  // booking/reschedule for the same car could have landed on these dates in between.
-  const overlapping = await Booking.findOne(
-    bookingConflictQuery({ carId: booking.car, pickup, drop, excludeBookingId: booking._id })
-  );
+  // booking/reschedule for the same car could have landed on these dates in between. If the
+  // check itself fails we can't tell, so fail closed and restore the original dates.
+  let overlapping;
+  try {
+    overlapping = await Booking.findOne(
+      bookingConflictQuery({ carId: booking.car, pickup, drop, excludeBookingId: booking._id })
+    );
+  } catch (err) {
+    await restoreOriginal();
+    throw err;
+  }
   if (overlapping) {
-    Object.assign(booking, original);
-    await booking.save();
+    await restoreOriginal();
     throw new AppError("Car is not available for the selected dates", 409);
   }
 
