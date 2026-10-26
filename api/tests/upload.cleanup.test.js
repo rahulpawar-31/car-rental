@@ -122,11 +122,11 @@ describe("rejected uploads are removed from Cloudinary (over HTTP, real multipar
 
   afterEach(() => destroy.mock.resetCalls());
 
-  const image = (name) => new Blob(["fake image bytes"], { type: "image/png" });
+  const image = () => new Blob(["fake image bytes"], { type: "image/png" });
   const send = async (method, path, fields, files = []) => {
     const form = new FormData();
     for (const [key, value] of Object.entries(fields)) form.append(key, value);
-    for (const [field, name] of files) form.append(field, image(name), name);
+    for (const [field, name] of files) form.append(field, image(), name);
     const res = await fetch(base + path, { method, headers: { Authorization: `Bearer ${token}` }, body: form });
     return { status: res.status, json: await res.json() };
   };
