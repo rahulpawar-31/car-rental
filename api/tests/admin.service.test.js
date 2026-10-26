@@ -413,7 +413,10 @@ describe("getDashboardStats", () => {
     mock.method(Booking, "find", () => chain([{ _id: "recent" }]));
     mock.method(Booking, "aggregate", async () => [{ _id: "pending", count: 5 }]);
     mock.method(Payment, "aggregate", async (pipeline) => {
-      if (pipeline.some((s) => s.$limit)) return [{ _id: { year: 2026, month: 5 }, total: 99, count: 1 }];
+      if (pipeline.some((s) => s.$bucket)) {
+        const now = new Date();
+        return [{ _id: new Date(now.getFullYear(), now.getMonth(), 1), total: 99, count: 1 }];
+      }
       const range = pipeline[0].$match.createdAt;
       const total = range.$lte ? revenueLast : revenueThis;
       return total === null ? [] : [{ _id: null, total }];

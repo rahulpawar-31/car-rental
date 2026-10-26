@@ -2,7 +2,7 @@ import User from "../model/user.model.js";
 import Car from "../model/car.model.js";
 import Booking from "../model/booking.model.js";
 import Payment from "../model/payment.model.js";
-import { revenueByMonthPipeline } from "../utils/dashboard.utils.js";
+import { revenueByMonthPipeline, shapeRevenueByMonth } from "../utils/dashboard.utils.js";
 import Review from "../model/review.model.js";
 
 /** Percentage change from `previous` to `current`, or 0 when there is nothing to compare against. */
@@ -31,7 +31,7 @@ export async function getDashboardStats() {
     pendingReviews,
     recentBookings,
     bookingsByStatus,
-    revenueByMonth,
+    revenueBuckets,
   ] = await Promise.all([
     User.countDocuments({ role: "user" }),
     User.countDocuments({ role: "user", createdAt: { $gte: startOfMonth } }),
@@ -62,8 +62,10 @@ export async function getDashboardStats() {
       .sort({ createdAt: -1 })
       .limit(5),
     Booking.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-    Payment.aggregate(revenueByMonthPipeline()),
+    Payment.aggregate(revenueByMonthPipeline({ now })),
   ]);
+
+  const revenueByMonth = shapeRevenueByMonth(revenueBuckets, { now });
 
   const thisMonthRevenue = revenueThisMonth[0]?.total || 0;
   const lastMonthRevenue = revenueLastMonth[0]?.total || 0;
