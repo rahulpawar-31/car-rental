@@ -81,9 +81,15 @@ const useAuthStore = create(
     }),
     {
       name: 'auth',
+      // Version 1: the access token is no longer persisted. Zustand runs `migrate` for any stored
+      // state saved under another version and then writes the result straight back, so a token left
+      // by an older build is scrubbed from storage on the first load. Without `migrate` a version
+      // change would discard the stored state and sign everyone out.
+      version: 1,
+      migrate: (persisted) => ({ user: persisted?.user ?? null }),
       partialize: (state) => ({ user: state.user }),
-      // Older builds also persisted `accessToken`; only take `user` from storage so a
-      // token left over from before the cookie-only change is never loaded back in.
+      // Only ever take `user` from storage, so a token that did get into the stored state (for
+      // example a hand-edited entry) is never loaded back in.
       merge: (persisted, current) => ({ ...current, user: persisted?.user ?? null }),
     }
   )
