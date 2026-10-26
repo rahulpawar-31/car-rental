@@ -23,3 +23,13 @@ export const otpRequestLimiter = rateLimit({
   legacyHeaders: false,
   message: tooMany,
 });
+
+// The contact form is public and every request emails the site owner, so each one counts
+// (including rejected ones), on top of the global limiter.
+export const contactLimiter = rateLimit({
+  windowMs: parseInt(process.env.CONTACT_RATE_LIMIT_WINDOW_MS) || 60 * 60 * 1000,
+  max: parseInt(process.env.CONTACT_RATE_LIMIT_MAX) || 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: tooMany,
+});
