@@ -316,12 +316,6 @@ export async function uploadCarDocument(id, docType, file, expiryDate) {
   const existing = await Car.findById(id).select(`documents.${docKey}`);
   if (!existing) throw new AppError("Car not found", 404);
 
-  const oldDoc = existing.documents?.[docKey];
-  if (oldDoc?.url) {
-    const publicId = oldDoc.publicId || extractPublicIdFromUrl(oldDoc.url, "car-rental/documents");
-    await deleteAsset(publicId);
-  }
-
   /** @type {Record<string, any>} */
   const update = {
     [`documents.${docKey}.url`]: file.path,
@@ -336,6 +330,15 @@ export async function uploadCarDocument(id, docType, file, expiryDate) {
 
   const car = await Car.findByIdAndUpdate(id, update, { new: true });
   if (!car) throw new AppError("Car not found", 404);
+
+  // The previous file is removed last, once the new one is saved. Doing it earlier left the car
+  // pointing at a deleted asset whenever a later step (a bad expiry date, a failed update) rejected
+  // the request.
+  const oldDoc = existing.documents?.[docKey];
+  if (oldDoc?.url) {
+    const publicId = oldDoc.publicId || extractPublicIdFromUrl(oldDoc.url, "car-rental/documents");
+    await deleteAsset(publicId);
+  }
 
   return car.documents;
 }
