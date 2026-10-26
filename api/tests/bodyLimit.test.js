@@ -40,4 +40,10 @@ describe("request body limit", () => {
     assert.equal(res.status, 200);
     assert.deepEqual(await res.json(), { received: true });
   });
+
+  it("rejects a webhook with a forged signature with 400", async () => {
+    const body = JSON.stringify({ event: "ignored.event", payload: {} });
+    const res = await post("/api/v1/payments/webhook", body, { "x-razorpay-signature": "0".repeat(64) });
+    assert.equal(res.status, 400);
+  });
 });
