@@ -2,6 +2,7 @@ import User from "../model/user.model.js";
 import Car from "../model/car.model.js";
 import Booking from "../model/booking.model.js";
 import Payment from "../model/payment.model.js";
+import { revenueByMonthPipeline } from "../utils/dashboard.utils.js";
 import Review from "../model/review.model.js";
 import { monthBoundaries } from "../utils/date.utils.js";
 
@@ -59,18 +60,7 @@ export async function getDashboardStats() {
       .sort({ createdAt: -1 })
       .limit(5),
     Booking.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-    Payment.aggregate([
-      { $match: { status: "succeeded" } },
-      {
-        $group: {
-          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
-          total: { $sum: "$amount" },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": 1, "_id.month": 1 } },
-      { $limit: 12 },
-    ]),
+    Payment.aggregate(revenueByMonthPipeline()),
   ]);
 
   const thisMonthRevenue = revenueThisMonth[0]?.total || 0;
