@@ -73,7 +73,9 @@ describe("POST /contact", () => {
   describe("email body", () => {
     const hostile = {
       name: `<img src=x onerror=alert(1)>`,
-      email: `a"><script>alert(1)</script>@example.com`,
+      // Request validation rejects `<`, `>`, `"` and `&` in an address; an apostrophe is the one
+      // HTML-special character a valid address can still carry.
+      email: `o'brien@example.com`,
       subject: `<b>Hi</b>`,
       message: `Click <a href="https://evil.example/login">here</a> & verify\n<script>steal()</script>`,
     };
@@ -90,7 +92,17 @@ describe("POST /contact", () => {
       assert.equal(html.includes("<a href"), false);
       assert.equal(html.includes("<b>Hi</b>"), false);
       assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"));
+      assert.ok(html.includes("o&#39;brien@example.com"));
       assert.ok(html.includes("&lt;a href=&quot;https://evil.example/login&quot;&gt;here&lt;/a&gt; &amp; verify"));
+    });
+
+    it("rejects an email address that could carry markup, before anything is sent", async () => {
+      captureMail();
+
+      const res = await post({ ...submission, email: `a"><script>alert(1)</script>@example.com` });
+
+      assert.equal(res.status, 400);
+      assert.equal(sent.length, 0);
     });
 
     it("keeps the plain-text part and the subject line as the visitor wrote them", async () => {

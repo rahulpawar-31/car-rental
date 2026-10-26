@@ -10,6 +10,16 @@ export function deleteAsset(publicId) {
 }
 
 /**
+ * Deletes the Cloudinary assets behind files multer's Cloudinary storage has just uploaded (a
+ * file's `filename` is its public_id). Best-effort, like deleteAsset.
+ *
+ * @param {Array<{ filename: string }>} files
+ */
+export function deleteUploadedFiles(files) {
+  return Promise.all(files.map((file) => deleteAsset(file.filename)));
+}
+
+/**
  * Legacy-compat fallback: re-derives a Cloudinary public_id from a stored
  * URL, for records saved before their publicId was captured at upload time.
  * Reproduces the pre-existing avatar-cleanup parsing verbatim (only the

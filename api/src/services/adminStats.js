@@ -4,6 +4,7 @@ import Booking from "../model/booking.model.js";
 import Payment from "../model/payment.model.js";
 import { revenueByMonthPipeline, shapeRevenueByMonth } from "../utils/dashboard.utils.js";
 import Review from "../model/review.model.js";
+import { monthBoundaries } from "../utils/date.utils.js";
 
 /** Percentage change from `previous` to `current`, or 0 when there is nothing to compare against. */
 export function growthPercent(current, previous) {
@@ -13,9 +14,7 @@ export function growthPercent(current, previous) {
 /** The admin dashboard: headline counts, month-on-month growth, recent bookings and charts data. */
 export async function getDashboardStats() {
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+  const { startOfMonth, startOfLastMonth } = monthBoundaries(now);
 
   const [
     totalUsers,
@@ -39,7 +38,7 @@ export async function getDashboardStats() {
     Car.countDocuments({ isActive: true, isAvailable: true }),
     Booking.countDocuments(),
     Booking.countDocuments({ createdAt: { $gte: startOfMonth } }),
-    Booking.countDocuments({ createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } }),
+    Booking.countDocuments({ createdAt: { $gte: startOfLastMonth, $lt: startOfMonth } }),
     Booking.countDocuments({ status: "active" }),
     Payment.aggregate([
       { $match: { status: "succeeded", createdAt: { $gte: startOfMonth } } },
@@ -49,7 +48,7 @@ export async function getDashboardStats() {
       {
         $match: {
           status: "succeeded",
-          createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth },
+          createdAt: { $gte: startOfLastMonth, $lt: startOfMonth },
         },
       },
       { $group: { _id: null, total: { $sum: "$amount" } } },
