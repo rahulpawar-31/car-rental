@@ -265,6 +265,57 @@ describe("createBooking", () => {
     ]);
     assert.equal(deps.sendEmail.mock.callCount(), 0);
   });
+
+  describe("after the coupon is claimed", () => {
+    const claimed = () => {
+      sequence(Booking, "findOne", null, null);
+      sequence(Car, "findById", car);
+      sequence(Coupon, "findOne", { _id: "c1", minBookingAmount: 0, perUserLimit: 1, usageLimit: 0, type: "fixed", value: 100 });
+      sequence(Coupon, "findOneAndUpdate", { _id: "c1" });
+    };
+    const withCoupon = () => ({ ...input(), couponCode: "save" });
+    const release = { $inc: { usageCount: -1 }, $pull: { usedBy: "user1" } };
+
+    it("gives the claim back when Booking.create throws", async () => {
+      claimed();
+      mock.method(Booking, "create", async () => { throw new Error("ValidationError: licenseExpiry"); });
+      const updateOne = mock.method(Coupon, "updateOne", async () => ({}));
+
+      await assert.rejects(createBooking({ user, input: withCoupon() }, noEmail()), /ValidationError/);
+
+      assert.deepEqual(updateOne.mock.calls[0].arguments, [{ _id: "c1" }, release]);
+    });
+
+    it("keeps the claim once the booking exists, even if a later step fails", async () => {
+      claimed();
+      mock.method(Booking, "create", async () => ({ _id: "b1", bookingNumber: "BK1" }));
+      sequence(Booking, "findById", { populate: () => { throw new Error("db down"); } });
+      const updateOne = mock.method(Coupon, "updateOne", async () => ({}));
+
+      await assert.rejects(createBooking({ user, input: withCoupon() }, noEmail()), /db down/);
+
+      assert.equal(updateOne.mock.callCount(), 0);
+    });
+
+    it("reports the original failure even if giving the claim back fails too", async () => {
+      claimed();
+      mock.method(Booking, "create", async () => { throw new Error("create failed"); });
+      mock.method(Coupon, "updateOne", async () => { throw new Error("release failed"); });
+
+      await assert.rejects(createBooking({ user, input: withCoupon() }, noEmail()), /create failed/);
+    });
+
+    it("claims no coupon, so releases nothing, when there is no coupon code", async () => {
+      sequence(Booking, "findOne", null, null);
+      sequence(Car, "findById", car);
+      mock.method(Booking, "create", async () => { throw new Error("create failed"); });
+      const updateOne = mock.method(Coupon, "updateOne", async () => ({}));
+
+      await assert.rejects(createBooking({ user, input: input() }, noEmail()), /create failed/);
+
+      assert.equal(updateOne.mock.callCount(), 0);
+    });
+  });
 });
 
 describe("listUserBookings", () => {
@@ -370,20 +421,107 @@ describe("rescheduleUserBooking", () => {
     assert.equal(deleteOne.mock.callCount(), 0);
   });
 
-  it("restores the original dates and amounts when a concurrent booking took the new ones", async () => {
-    const booking = existing();
-    const original = { ...booking };
-    sequence(Booking, "findOne", booking, null, { _id: "other" });
+  describe("rental span", () => {
+    it("lets an hourly booking move to a window of the same length", async () => {
+      const booking = existing({ rentalType: "hour", totalHours: 48 });
+      sequence(Booking, "findOne", booking, null, null);
+      sequence(Car, "findById", { ...car, pricePerHour: 100 });
+      mock.method(Payment, "deleteOne", async () => ({}));
+      sequence(Booking, "findById", chain({ _id: "b1" }));
+
+      await rescheduleUserBooking("user1", "b1", dates()); // 48h window, 48 totalHours
+
+      assert.equal(booking.save.mock.callCount(), 1);
+    });
+
+    it("rejects stretching an hourly booking, which would keep its old hourly price", async () => {
+      const booking = existing({ rentalType: "hour", totalHours: 3 });
+      sequence(Booking, "findOne", booking);
+
+      await rejectsWith(
+        rescheduleUserBooking("user1", "b1", dates()), // 48h window
+        400,
+        "An hourly booking can only be moved to a window of the same length (3 hours)"
+      );
+      assert.equal(booking.save.mock.callCount(), 0);
+    });
+
+    it("rejects moving an airport transfer to a window past 24 hours", async () => {
+      const booking = existing({ rentalType: "airport" });
+      sequence(Booking, "findOne", booking);
+
+      await rejectsWith(
+        rescheduleUserBooking("user1", "b1", { pickupDate: inHours(100).toISOString(), dropDate: inHours(220).toISOString() }),
+        400,
+        "Airport transfer bookings can span at most 24 hours — use a daily rental for longer trips"
+      );
+      assert.equal(booking.save.mock.callCount(), 0);
+    });
+  });
+
+  describe("when a concurrent booking took the new dates", () => {
+    const originalFields = ["pickupDate", "dropDate", "totalDays", "baseAmount", "discountAmount", "taxAmount", "totalAmount", "paymentStatus"];
+
+    it("restores the original dates and amounts with one atomic write", async () => {
+      const booking = existing();
+      const original = { ...booking };
+      sequence(Booking, "findOne", booking, null, { _id: "other" });
+      sequence(Car, "findById", car);
+      const deleteOne = mock.method(Payment, "deleteOne", async () => ({}));
+      const updateOne = mock.method(Booking, "updateOne", async () => ({}));
+
+      await rejectsWith(rescheduleUserBooking("user1", "b1", dates()), 409, "Car is not available for the selected dates");
+
+      assert.equal(booking.save.mock.callCount(), 1); // only the reschedule itself
+      assert.equal(updateOne.mock.callCount(), 1);
+      const [filter, update] = updateOne.mock.calls[0].arguments;
+      assert.deepEqual(filter, { _id: "b1" });
+      assert.deepEqual(Object.keys(update.$set).sort(), [...originalFields].sort());
+      for (const key of originalFields) assert.deepEqual(update.$set[key], original[key], key);
+      assert.equal(deleteOne.mock.callCount(), 0);
+    });
+
+    it("retries the restore once before giving up", async () => {
+      let attempts = 0;
+      sequence(Booking, "findOne", existing(), null, { _id: "other" });
+      sequence(Car, "findById", car);
+      mock.method(Booking, "updateOne", async () => {
+        if (++attempts === 1) throw new Error("transient");
+        return {};
+      });
+
+      await rejectsWith(rescheduleUserBooking("user1", "b1", dates()), 409, "Car is not available for the selected dates");
+      assert.equal(attempts, 2);
+    });
+
+    it("reports a 500, not a misleading 409, when the booking cannot be restored", async () => {
+      sequence(Booking, "findOne", existing(), null, { _id: "other" });
+      sequence(Car, "findById", car);
+      const updateOne = mock.method(Booking, "updateOne", async () => { throw new Error("db down"); });
+
+      await rejectsWith(
+        rescheduleUserBooking("user1", "b1", dates()),
+        500,
+        "The reschedule conflicted and the booking could not be restored automatically. Please contact support."
+      );
+      assert.equal(updateOne.mock.callCount(), 2);
+    });
+  });
+
+  it("restores the original dates when the post-save conflict check itself fails", async () => {
+    let call = 0;
+    mock.method(Booking, "findOne", () => {
+      const n = ++call;
+      if (n === 1) return existing();
+      if (n === 2) return null;
+      throw new Error("db down");
+    });
     sequence(Car, "findById", car);
-    const deleteOne = mock.method(Payment, "deleteOne", async () => ({}));
+    const updateOne = mock.method(Booking, "updateOne", async () => ({}));
 
-    await rejectsWith(rescheduleUserBooking("user1", "b1", dates()), 409, "Car is not available for the selected dates");
+    await assert.rejects(rescheduleUserBooking("user1", "b1", dates()), /db down/);
 
-    assert.equal(booking.save.mock.callCount(), 2); // the reschedule, then the rollback
-    for (const key of ["pickupDate", "dropDate", "totalDays", "baseAmount", "discountAmount", "taxAmount", "totalAmount", "paymentStatus"]) {
-      assert.deepEqual(booking[key], original[key], key);
-    }
-    assert.equal(deleteOne.mock.callCount(), 0);
+    assert.equal(updateOne.mock.callCount(), 1);
   });
 });
 
