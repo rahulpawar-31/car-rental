@@ -3,6 +3,9 @@
 // coerced fields (e.g. ?page=2) arrive as the right type. Operators like { $ne: null } can't
 // reach a Mongoose query where the schema says "string".
 //
+// req.query is a read-only getter on Express 5, so parsed values are installed with
+// defineProperty, which works on both 4 and 5.
+//
 //   router.post("/", validate({ body: createBookingBody }), createBooking);
 export const validate = (schemas) => (req, res, next) => {
   const errors = [];
@@ -13,11 +16,16 @@ export const validate = (schemas) => (req, res, next) => {
 
     const result = schema.safeParse(req[part] ?? {});
     if (result.success) {
-      req[part] = result.data;
+      Object.defineProperty(req, part, { value: result.data, writable: true, configurable: true, enumerable: true });
       continue;
     }
     for (const issue of result.error.issues) {
-      errors.push({ field: issue.path.join(".") || part, message: issue.message });
+      const field = issue.path.join(".") || part;
+      // Zod's default texts ("Invalid input: expected string, received number") never name the
+      // field, and the client shows only this message, so add the name when the text lacks it.
+      const name = String(issue.path.at(-1) ?? part);
+      const message = issue.message.includes(name) ? issue.message : `${name}: ${issue.message}`;
+      errors.push({ field, message });
     }
   }
 

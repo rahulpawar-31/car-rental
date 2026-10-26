@@ -12,6 +12,7 @@ const { default: User } = await import("../src/model/user.model.js");
 const { default: bookingRoutes } = await import("../src/routes/booking.routes.js");
 const { default: paymentRoutes } = await import("../src/routes/payment.routes.js");
 const { errorHandler } = await import("../src/middleware/errorHandler.js");
+const { validate } = await import("../src/middleware/validate.middleware.js");
 const { createBookingBody, applyCouponBody, listBookingsQuery } = await import(
   "../src/validation/booking.validation.js"
 );
@@ -106,6 +107,13 @@ describe("booking schemas", () => {
     assert.equal(listBookingsQuery.safeParse({ limit: "1e2" }).success, false);
   });
 
+  it("rejects an unknown or repeated status filter instead of silently ignoring it", () => {
+    assert.equal(listBookingsQuery.parse({ status: "confirmed" }).status, "confirmed");
+    assert.equal(listBookingsQuery.parse({ status: "" }).status, undefined);
+    assert.equal(listBookingsQuery.safeParse({ status: "bogus" }).success, false);
+    assert.equal(listBookingsQuery.safeParse({ status: ["pending", "active"] }).success, false);
+  });
+
   it("coerces and bounds list queries", () => {
     assert.deepEqual(listBookingsQuery.parse({}), { page: 1, limit: 10 });
     assert.equal(listBookingsQuery.parse({ page: "2", limit: "50" }).limit, 50);
@@ -163,6 +171,27 @@ describe("validated routes (over HTTP, auth stubbed, no database)", () => {
     assert.equal(json.success, false);
     assert.equal(json.message, json.errors[0].message);
     assert.deepEqual(json.errors.map((e) => e.field).sort(), ["carId", "dropDate"]);
+  });
+
+  it("names the field when zod's default message would not", async () => {
+    const res = await call("POST", "/bookings", { carId: ID, pickupDate: "2030-01-01", dropDate: "2030-01-03", couponCode: 123 });
+    assert.equal(res.status, 400);
+    const json = await res.json();
+    assert.match(json.message, /^couponCode: /);
+    assert.equal(json.message, json.errors[0].message);
+  });
+
+  it("GET /bookings rejects an unknown status", async () => {
+    const res = await call("GET", "/bookings?status=bogus");
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).errors[0].field, "status");
+  });
+
+  it("installs parsed values on a read-only req.query (Express 5 getter)", () => {
+    const req = {};
+    Object.defineProperty(req, "query", { get: () => ({ page: "2" }), configurable: true });
+    validate({ query: listBookingsQuery })(req, {}, () => {});
+    assert.deepEqual(req.query, { page: 2, limit: 10 });
   });
 
   it("GET /bookings/:id rejects a malformed id", async () => {

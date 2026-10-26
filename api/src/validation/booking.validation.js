@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BOOKING_STATUSES } from "../model/booking.model.js";
 import { dateInput, nonEmptyString, numberInput, objectId, optionalField, pagination } from "./common.js";
 
 const rentalType = z.enum(["day", "hour", "airport"], { error: "rentalType must be day, hour or airport" });
@@ -47,5 +48,5 @@ export const rescheduleBookingBody = z.object({
 
 export const listBookingsQuery = z.object({
   ...pagination,
-  status: z.string().trim().max(30).optional(),
+  status: optionalField(z.enum(BOOKING_STATUSES, { error: `status must be one of: ${BOOKING_STATUSES.join(", ")}` })),
 });

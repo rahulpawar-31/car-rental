@@ -136,13 +136,11 @@ export const createBooking = async (req, res) => {
   res.status(201).json({ success: true, message: "Booking created", data: { booking: populatedBooking } });
 };
 
-const VALID_STATUSES = ["pending", "confirmed", "active", "completed", "cancelled", "no-show"];
-
 export const getMyBookings = async (req, res) => {
   const { page = 1, limit = 10, status } = req.query;
 
   const query = { user: req.user._id };
-  if (status && VALID_STATUSES.includes(status)) query.status = status;
+  if (status) query.status = status;
 
   const [bookings, total] = await Promise.all([
     Booking.find(query)
