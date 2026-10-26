@@ -6,12 +6,10 @@ import Review from "../model/review.model.js";
 import Coupon from "../model/coupon.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { escapeRegex } from "../utils/regex.utils.js";
+import { monthBoundaries } from "../utils/date.utils.js";
 
 export const getDashboardStats = async (req, res) => {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+  const { startOfMonth, startOfLastMonth } = monthBoundaries();
 
   const [
     totalUsers,
@@ -35,7 +33,7 @@ export const getDashboardStats = async (req, res) => {
     Car.countDocuments({ isActive: true, isAvailable: true }),
     Booking.countDocuments(),
     Booking.countDocuments({ createdAt: { $gte: startOfMonth } }),
-    Booking.countDocuments({ createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } }),
+    Booking.countDocuments({ createdAt: { $gte: startOfLastMonth, $lt: startOfMonth } }),
     Booking.countDocuments({ status: "active" }),
     Payment.aggregate([
       { $match: { status: "succeeded", createdAt: { $gte: startOfMonth } } },
@@ -45,7 +43,7 @@ export const getDashboardStats = async (req, res) => {
       {
         $match: {
           status: "succeeded",
-          createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth },
+          createdAt: { $gte: startOfLastMonth, $lt: startOfMonth },
         },
       },
       { $group: { _id: null, total: { $sum: "$amount" } } },
