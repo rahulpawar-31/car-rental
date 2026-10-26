@@ -94,6 +94,8 @@ AUTH_RATE_LIMIT_WINDOW_MS=900000        # login / verify-otp / reset-password: f
 AUTH_RATE_LIMIT_MAX=10
 OTP_REQUEST_RATE_LIMIT_WINDOW_MS=3600000  # forgot-password: requests per window per IP
 OTP_REQUEST_RATE_LIMIT_MAX=5
+CONTACT_RATE_LIMIT_WINDOW_MS=3600000     # contact form: submissions per window per IP
+CONTACT_RATE_LIMIT_MAX=5
 ```
 
 ### 2. Seed the database (optional)
