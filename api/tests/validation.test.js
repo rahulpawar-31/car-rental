@@ -16,7 +16,7 @@ const { validate } = await import("../src/middleware/validate.middleware.js");
 const { createBookingBody, applyCouponBody, listBookingsQuery } = await import(
   "../src/validation/booking.validation.js"
 );
-const { confirmPaymentBody } = await import("../src/validation/payment.validation.js");
+const { confirmPaymentBody, refundBody } = await import("../src/validation/payment.validation.js");
 
 const ID = "64b000000000000000000001";
 
@@ -123,6 +123,16 @@ describe("booking schemas", () => {
 });
 
 describe("payment schemas", () => {
+  it("treats a null or empty refund reason as not provided", () => {
+    for (const reason of [undefined, null, ""]) {
+      const result = refundBody.safeParse({ bookingId: ID, reason });
+      assert.equal(result.success, true, String(reason));
+      assert.equal(result.data.reason, undefined, String(reason));
+    }
+    assert.equal(refundBody.parse({ bookingId: ID, reason: "  damaged  " }).reason, "damaged");
+    assert.equal(refundBody.safeParse({ bookingId: ID, reason: "x".repeat(501) }).success, false);
+  });
+
   it("requires all three Razorpay confirmation fields as strings", () => {
     const ok = { razorpayPaymentId: "pay_1", razorpayOrderId: "order_1", razorpaySignature: "sig" };
     assert.equal(confirmPaymentBody.safeParse(ok).success, true);

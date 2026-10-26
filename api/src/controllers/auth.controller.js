@@ -114,13 +114,15 @@ export const refreshToken = async (req, res) => {
   res.json({ success: true, data: { accessToken } });
 };
 
+// The same text whether or not the account exists, so the response can't be used to find out
+// which emails are registered.
+const OTP_REQUESTED = { success: true, message: "If that email exists, an OTP has been sent" };
+
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
   const user = await User.findOne({ email });
-  if (!user) {
-    return res.json({ success: true, message: "If that email exists, an OTP has been sent" });
-  }
+  if (!user) return res.json(OTP_REQUESTED);
 
   const otp = generateOTP();
   user.otp = otp;
@@ -130,7 +132,7 @@ export const forgotPassword = async (req, res) => {
 
   await sendOtpEmail(email, otp, user.name);
 
-  res.json({ success: true, message: "OTP sent to your email address" });
+  res.json(OTP_REQUESTED);
 };
 
 export const verifyOtp = async (req, res) => {
