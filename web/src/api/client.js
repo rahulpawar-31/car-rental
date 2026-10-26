@@ -23,7 +23,11 @@ api.interceptors.response.use(
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
-        }).then(() => api(original))
+        }).then(() => {
+          // Mark the replay too, or a request that 401s again would start yet another refresh.
+          original._retry = true
+          return api(original)
+        })
       }
       original._retry = true
       isRefreshing = true

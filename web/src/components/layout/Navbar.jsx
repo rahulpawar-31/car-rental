@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Phone, MapPin } from 'lucide-react'
 import { FaFacebookF, FaTwitter, FaInstagram } from 'react-icons/fa'
+import { toast } from 'sonner'
 import useAuthStore from '../../store/authStore'
 
 const NAV_LINKS = [
@@ -30,7 +31,11 @@ export default function Navbar() {
   }, [])
 
   const handleLogout = async () => {
-    await logout()
+    const result = await logout()
+    if (!result.success) {
+      toast.error(result.message)
+      return
+    }
     navigate('/login')
     setDropOpen(false)
     setMenuOpen(false)

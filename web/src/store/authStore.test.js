@@ -70,14 +70,55 @@ describe('authStore clearSession', () => {
     expect(useAuthStore.getState().user).toBeNull()
   })
 
-  test('logout() clears the session even when the backend logout call rejects', async () => {
+  test('logout() clears the session once the backend confirms', async () => {
+    seedSignedInState()
+    authApi.logout.mockResolvedValueOnce({})
+
+    const result = await useAuthStore.getState().logout()
+
+    expect(result).toEqual({ success: true })
+    expect(useAuthStore.getState().user).toBeNull()
+  })
+
+  test('logout() keeps the session and reports failure when the backend is unreachable', async () => {
     seedSignedInState()
     authApi.logout.mockRejectedValueOnce(new Error('network down'))
 
-    await useAuthStore.getState().logout()
+    const result = await useAuthStore.getState().logout()
 
-    expect(authApi.logout).toHaveBeenCalled()
+    expect(result.success).toBe(false)
+    expect(result.message).toBeTruthy()
+    expect(useAuthStore.getState().user).toEqual({ id: 'u1', name: 'Jane' })
+  })
+
+  test('logout() keeps the session on a 5xx and surfaces the server message', async () => {
+    seedSignedInState()
+    authApi.logout.mockRejectedValueOnce({ response: { status: 500, data: { message: 'Boom' } } })
+
+    const result = await useAuthStore.getState().logout()
+
+    expect(result).toEqual({ success: false, message: 'Boom' })
+    expect(useAuthStore.getState().user).not.toBeNull()
+  })
+
+  test('logout() signs out locally on a 401, since the cookies are already rejected', async () => {
+    seedSignedInState()
+    authApi.logout.mockRejectedValueOnce({ response: { status: 401 } })
+
+    const result = await useAuthStore.getState().logout()
+
+    expect(result).toEqual({ success: true })
     expect(useAuthStore.getState().user).toBeNull()
+  })
+
+  test('logout() counts as signed out when the interceptor already cleared the session', async () => {
+    seedSignedInState()
+    authApi.logout.mockImplementationOnce(async () => {
+      useAuthStore.getState().clearSession()
+      throw new Error('refresh failed')
+    })
+
+    expect(await useAuthStore.getState().logout()).toEqual({ success: true })
   })
 
   test('fetchMe() clears the session (same shape as clearSession) when getMe() fails', async () => {
