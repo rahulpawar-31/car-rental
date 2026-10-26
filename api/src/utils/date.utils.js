@@ -28,3 +28,21 @@ export function parseValidDate(value) {
   const date = new Date(value);
   return isNaN(date.getTime()) ? null : date;
 }
+
+/**
+ * The calendar-month boundaries the admin dashboard compares, in server local time.
+ *
+ * "This month" is `createdAt >= startOfMonth`; "last month" is the half-open window
+ * `createdAt >= startOfLastMonth && createdAt < startOfMonth`. Half-open on purpose: using the
+ * last day of last month at 00:00 as an inclusive upper bound drops everything created later that
+ * day, so it ends up in neither window.
+ *
+ * @param {Date} [now]
+ * @returns {{ startOfMonth: Date, startOfLastMonth: Date }}
+ */
+export function monthBoundaries(now = new Date()) {
+  return {
+    startOfMonth: new Date(now.getFullYear(), now.getMonth(), 1),
+    startOfLastMonth: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+  };
+}
