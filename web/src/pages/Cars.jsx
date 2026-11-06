@@ -310,6 +310,7 @@ export default function Cars() {
     priceRange: { min: 0, max: 10000 },
   })
   const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
   const [query, setQuery] = useState({
@@ -342,6 +343,7 @@ export default function Cars() {
 
   useEffect(() => {
     setLoading(true)
+    setLoadFailed(false)
     const controller = new AbortController()
     const params = {}
     Object.entries(query).forEach(([k, v]) => {
@@ -352,7 +354,14 @@ export default function Cars() {
         setCars(data.data.cars)
         setPagination(data.data.pagination)
       })
-      .catch(() => {})
+      .catch(() => {
+        // A superseded (aborted) request is not an error. A real failure must not leave the
+        // previous response on screen: its cars and total belong to different filters.
+        if (controller.signal.aborted) return
+        setCars([])
+        setPagination({})
+        setLoadFailed(true)
+      })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)
       })
@@ -525,7 +534,7 @@ export default function Cars() {
               </div>
             )}
             {/* Result count */}
-            {!loading && (
+            {!loading && !loadFailed && (
               <p className="text-sm text-gray-500 mb-4">
                 <span className="font-semibold text-gray-900">{pagination.total || 0}</span> cars
                 found
@@ -538,6 +547,18 @@ export default function Cars() {
             {loading ? (
               <div className="flex justify-center py-28">
                 <Spinner size="lg" />
+              </div>
+            ) : loadFailed ? (
+              <div className="text-center py-24 bg-white rounded-2xl border border-gray-200">
+                <div className="text-5xl mb-4">⚠️</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Could not load cars</h3>
+                <p className="text-gray-500 text-sm mb-4">Check your connection and try again.</p>
+                <button
+                  onClick={() => setQuery(prev => ({ ...prev }))}
+                  className="text-sm text-teal-600 font-semibold hover:underline"
+                >
+                  Try again
+                </button>
               </div>
             ) : cars.length === 0 ? (
               <div className="text-center py-24 bg-white rounded-2xl border border-gray-200">
@@ -707,7 +728,7 @@ export default function Cars() {
               onClick={() => setMobileFiltersOpen(false)}
               className="w-full mt-4 bg-teal-500 hover:bg-teal-600 text-white font-bold py-2.5 rounded-lg text-sm transition-colors"
             >
-              {loading ? 'Updating…' : `Show ${pagination.total ?? 0} cars`}
+              {loading ? 'Updating…' : loadFailed ? 'Show cars' : `Show ${pagination.total ?? 0} cars`}
             </button>
           </div>
         </div>
