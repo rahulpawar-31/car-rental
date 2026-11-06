@@ -47,21 +47,32 @@ if (unfixable.length) {
 
 if (apply && fixable.length) {
   const result = await cars.bulkWrite(
-    fixable.map((c) => ({ updateOne: { filter: { _id: c._id }, update: { $set: { location: new ObjectId(c.location) } } } }))
+    // The filter repeats the string so a car edited since the read above is left alone.
+    fixable.map((c) => ({
+      updateOne: { filter: { _id: c._id, location: c.location }, update: { $set: { location: new ObjectId(c.location) } } },
+    }))
   );
   console.log(`  converted: ${result.modifiedCount}`);
 }
 
 // ── 2. missing createdAt / updatedAt ───────────────────────────────────────────
 // The date is taken from the timestamp inside each car's _id, i.e. when it was really created.
-const missingDates = await cars.find({ createdAt: { $exists: false } }, { projection: { name: 1 } }).toArray();
+// `createdAt: null` matches both a missing field and an explicit null.
+const missingDates = await cars.find({ createdAt: null }, { projection: { name: 1 } }).toArray();
+// Only an ObjectId _id carries a timestamp. Anything else is listed and left alone.
+const dated = missingDates.filter((c) => c._id instanceof ObjectId);
+const undatable = missingDates.filter((c) => !(c._id instanceof ObjectId));
 console.log(`\nCars without createdAt: ${missingDates.length}`);
+if (undatable.length) {
+  console.log(`  NOT touched (_id is not an ObjectId, so it has no creation time): ${undatable.length}`);
+  for (const c of undatable) console.log(`    ${JSON.stringify(c._id)}  ${c.name}`);
+}
 
-if (apply && missingDates.length) {
+if (apply && dated.length) {
   const result = await cars.bulkWrite(
-    missingDates.map((c) => {
+    dated.map((c) => {
       const created = c._id.getTimestamp();
-      return { updateOne: { filter: { _id: c._id }, update: { $set: { createdAt: created, updatedAt: created } } } };
+      return { updateOne: { filter: { _id: c._id, createdAt: null }, update: { $set: { createdAt: created, updatedAt: created } } } };
     })
   );
   console.log(`  backfilled: ${result.modifiedCount}`);
@@ -77,6 +88,14 @@ const counts = new Map(perLocation.map((r) => [String(r._id), r.count]));
 for (const l of await locations.find({}, { projection: { name: 1 } }).toArray()) {
   console.log(`  ${l.name}: ${counts.get(String(l._id)) ?? 0}`);
 }
+
+// Cars the counts above can never include, whatever else is fixed. Compare this with the QA
+// report: if it does not explain the gap, the cause in #84 is something else.
+const orphaned = await cars
+  .find({ location: { $not: { $type: "string" } }, $or: [{ location: null }, { location: { $nin: [...knownLocationIds].map((id) => new ObjectId(id)) } }] }, { projection: { name: 1, location: 1 } })
+  .toArray();
+console.log(`\nCars whose location is missing or is not an existing location: ${orphaned.length}`);
+for (const c of orphaned) console.log(`    ${c._id}  ${c.name}  location=${JSON.stringify(c.location ?? null)}`);
 
 if (!apply) console.log("\nDry run only. Re-run with --apply to make these changes.");
 await mongoose.disconnect();
