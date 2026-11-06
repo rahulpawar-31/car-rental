@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Phone, MapPin, Mail } from 'lucide-react'
-import { FaFacebookF, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa'
 import { toast } from 'sonner'
 import Button from '../ui/Button'
 
@@ -14,7 +13,6 @@ export default function Footer() {
     setEmail('')
   }
 
-  const noNav = e => e.preventDefault()
 
   return (
     <footer className="bg-[#111111] text-gray-400">
@@ -50,40 +48,6 @@ export default function Footer() {
               Getting dressed up and traveling with good friends makes for a shared, unforgettable
               experience. Your trusted partner for premium car rentals across India.
             </p>
-            <div className="flex items-center gap-3">
-              <a
-                href="#"
-                onClick={noNav}
-                aria-label="Facebook"
-                className="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center text-gray-400 hover:border-teal-400 hover:text-teal-400 transition-colors"
-              >
-                <FaFacebookF size={14} />
-              </a>
-              <a
-                href="#"
-                onClick={noNav}
-                aria-label="Twitter"
-                className="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center text-gray-400 hover:border-teal-400 hover:text-teal-400 transition-colors"
-              >
-                <FaTwitter size={14} />
-              </a>
-              <a
-                href="#"
-                onClick={noNav}
-                aria-label="Instagram"
-                className="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center text-gray-400 hover:border-teal-400 hover:text-teal-400 transition-colors"
-              >
-                <FaInstagram size={14} />
-              </a>
-              <a
-                href="#"
-                onClick={noNav}
-                aria-label="YouTube"
-                className="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center text-gray-400 hover:border-teal-400 hover:text-teal-400 transition-colors"
-              >
-                <FaYoutube size={14} />
-              </a>
-            </div>
           </div>
 
           {/* Contact Info */}
@@ -175,14 +139,6 @@ export default function Footer() {
           <p className="text-xs text-gray-600">
             © {new Date().getFullYear()} DriveEase. All rights reserved.
           </p>
-          <div className="flex items-center gap-4 text-xs text-gray-600">
-            <a href="#" onClick={noNav} className="hover:text-gray-400 transition-colors">
-              Privacy Policy
-            </a>
-            <a href="#" onClick={noNav} className="hover:text-gray-400 transition-colors">
-              Terms of Service
-            </a>
-          </div>
         </div>
       </div>
     </footer>

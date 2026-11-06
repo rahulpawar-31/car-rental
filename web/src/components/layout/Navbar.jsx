@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Phone, MapPin } from 'lucide-react'
-import { FaFacebookF, FaTwitter, FaInstagram } from 'react-icons/fa'
 import { toast } from 'sonner'
 import useAuthStore from '../../store/authStore'
 
@@ -61,33 +60,6 @@ export default function Navbar() {
             <Phone className="w-3 h-3 text-teal-400" />
             1.800.456.8743
           </span>
-          {/* Social links */}
-          <div className="flex items-center gap-3">
-            <a
-              href="#"
-              onClick={e => e.preventDefault()}
-              aria-label="Facebook"
-              className="w-7 h-7 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:text-white hover:border-teal-400 transition-colors"
-            >
-              <FaFacebookF size={12} />
-            </a>
-            <a
-              href="#"
-              onClick={e => e.preventDefault()}
-              aria-label="Twitter"
-              className="w-7 h-7 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:text-white hover:border-teal-400 transition-colors"
-            >
-              <FaTwitter size={12} />
-            </a>
-            <a
-              href="#"
-              onClick={e => e.preventDefault()}
-              aria-label="Instagram"
-              className="w-7 h-7 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:text-white hover:border-teal-400 transition-colors"
-            >
-              <FaInstagram size={12} />
-            </a>
-          </div>
         </div>
       </div>
 

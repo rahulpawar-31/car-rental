@@ -105,14 +105,6 @@ export default function Contact() {
                 </div>
               ))}
             </div>
-
-            {/* Map placeholder */}
-            <div className="rounded-2xl overflow-hidden border border-gray-200 h-48 bg-gray-100 flex items-center justify-center">
-              <div className="text-center text-gray-400">
-                <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                <p className="text-sm">184 Main Street East, Mumbai</p>
-              </div>
-            </div>
           </div>
 
           {/* Contact Form */}
