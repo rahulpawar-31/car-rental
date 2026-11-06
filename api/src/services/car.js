@@ -126,6 +126,25 @@ function parseDateWindow(pickupDate, dropDate) {
   return { pickup, drop };
 }
 
+const OBJECT_ID_PATTERN = /^[0-9a-f]{24}$/i;
+
+/**
+ * Fills in `location` on lean cars. A lean query skips Mongoose's casting, so a car whose stored
+ * location is not a valid id (a string like "nope", left by an insert outside the model) would
+ * make populate throw a cast error and fail the whole list. Such a car is returned with
+ * `location: null` instead of taking every car listed alongside it down.
+ * @param {any[]} cars
+ * @param {string} select
+ */
+async function populateLocations(cars, select) {
+  for (const car of cars) {
+    const loc = car.location;
+    const usable = loc == null || loc instanceof mongoose.Types.ObjectId || OBJECT_ID_PATTERN.test(String(loc));
+    if (!usable) car.location = null;
+  }
+  return Car.populate(cars, { path: "location", select });
+}
+
 /**
  * The public car list: filters, optional exclusion of cars booked in a date window, sort and page.
  * @param {Record<string, string>} params - the request's query parameters
@@ -152,14 +171,13 @@ export async function listCars(params) {
   const collation = sort === "model-asc" && !query.$text ? { locale: "en", strength: 2 } : undefined;
 
   let carsQuery = Car.find(query)
-    .populate("location", "name city")
     .sort(CAR_SORT_OPTIONS[sort] || { createdAt: -1 })
     .skip((pageNum - 1) * limitNum)
     .limit(limitNum);
   if (collation) carsQuery = carsQuery.collation(collation);
 
   const [cars, total] = await Promise.all([
-    carsQuery.lean(),
+    carsQuery.lean().then((found) => populateLocations(found, "name city")),
     Car.countDocuments(query, collation ? { collation } : undefined),
   ]);
 
@@ -182,11 +200,9 @@ export async function getCar(id) {
   return car;
 }
 
-export function getFeaturedCars() {
-  return Car.find({ isFeatured: true, isActive: true, isAvailable: true })
-    .populate("location", "name city")
-    .limit(8)
-    .lean();
+export async function getFeaturedCars() {
+  const cars = await Car.find({ isFeatured: true, isActive: true, isAvailable: true }).limit(8).lean();
+  return populateLocations(cars, "name city");
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, it, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
+import mongoose from "mongoose";
 import Car from "../src/model/car.model.js";
 import Booking from "../src/model/booking.model.js";
 import { cloudinary } from "../src/config/cloudinary.js";
@@ -270,6 +271,51 @@ describe("getCar / getFeaturedCars", () => {
 
     assert.deepEqual(find.mock.calls[0].arguments[0], { isFeatured: true, isActive: true, isAvailable: true });
     assert.deepEqual(q.calls.limit, [8]);
+  });
+});
+
+describe("cars with a location that is not a valid id", () => {
+  // Lean queries skip casting, so populate would throw on a value like "nope" and fail the whole
+  // list. These cars must come back with location: null instead, next to the cars that are fine.
+  const validId = new mongoose.Types.ObjectId();
+  const stored = () => [
+    { _id: "ok-object-id", location: validId },
+    { _id: "ok-string-id", location: String(validId) },
+    { _id: "bad-word", location: "nope" },
+    { _id: "bad-12-chars", location: "abcdefghijkl" },
+    { _id: "bad-object", location: {} },
+    { _id: "no-location" },
+  ];
+  const locationsById = (cars) => Object.fromEntries(cars.map((c) => [c._id, c.location]));
+
+  it("lists them with a null location instead of failing the list", async () => {
+    mock.method(Car, "find", () => chain(stored()));
+    mock.method(Car, "countDocuments", async () => 6);
+    const populate = mock.method(Car, "populate", async (docs) => docs);
+
+    const { cars } = await listCars({});
+
+    assert.equal(cars.length, 6);
+    assert.deepEqual(populate.mock.calls[0].arguments[1], { path: "location", select: "name city" });
+    const locations = locationsById(populate.mock.calls[0].arguments[0]);
+    assert.equal(locations["ok-object-id"], validId);
+    assert.equal(locations["ok-string-id"], String(validId));
+    assert.equal(locations["bad-word"], null);
+    assert.equal(locations["bad-12-chars"], null);
+    assert.equal(locations["bad-object"], null);
+    assert.equal(locations["no-location"], undefined);
+  });
+
+  it("does the same for the featured cars", async () => {
+    mock.method(Car, "find", () => chain(stored()));
+    const populate = mock.method(Car, "populate", async (docs) => docs);
+
+    const cars = await getFeaturedCars();
+
+    assert.equal(cars.length, 6);
+    const locations = locationsById(populate.mock.calls[0].arguments[0]);
+    assert.equal(locations["bad-word"], null);
+    assert.equal(locations["ok-string-id"], String(validId));
   });
 });
 
