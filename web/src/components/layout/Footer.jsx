@@ -13,7 +13,6 @@ export default function Footer() {
     setEmail('')
   }
 
-
   return (
     <footer className="bg-[#111111] text-gray-400">
       {/* Main footer */}

@@ -69,7 +69,6 @@ export default function BlogPost() {
     setNewsletterEmail('')
   }
 
-
   return (
     <div className="bg-white min-h-screen">
       {/* Hero */}
