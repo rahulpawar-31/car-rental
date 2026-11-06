@@ -58,6 +58,7 @@ import ConfirmModal from '../components/ui/ConfirmModal'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
 import { toast } from 'sonner'
+import CarPhoto from '../components/ui/CarPhoto'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const fmt = n => (n ?? 0).toLocaleString('en-IN')
@@ -470,7 +471,7 @@ function AvailabilityTab() {
             >
               <div className="h-36 bg-gray-100 relative">
                 {car.images?.[0]?.url ? (
-                  <img src={car.images[0].url} alt="" className="w-full h-full object-cover object-bottom" />
+                  <CarPhoto src={car.images[0].url} alt="" className="w-full h-full" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-4xl">🚗</div>
                 )}
@@ -1555,10 +1556,10 @@ function CarsTab() {
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-8 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                         {car.images?.[0]?.url ? (
-                          <img
+                          <CarPhoto
                             src={car.images[0].url}
                             alt=""
-                            className="w-full h-full object-cover object-bottom"
+                            className="w-full h-full"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-base">

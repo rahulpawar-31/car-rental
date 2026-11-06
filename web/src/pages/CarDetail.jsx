@@ -29,6 +29,7 @@ import { getErrorMessage } from '../api/errors'
 import useAuthStore from '../store/authStore'
 import Spinner from '../components/ui/Spinner'
 import Button from '../components/ui/Button'
+import CarPhoto from '../components/ui/CarPhoto'
 import PersonalInfoFields from '../components/booking/PersonalInfoFields'
 import LocationFields from '../components/booking/LocationFields'
 import { toast } from 'sonner'
@@ -467,10 +468,10 @@ export default function CarDetail() {
       {/* ── Hero Banner ───────────────────────────────────────────── */}
       <div className="relative min-h-[320px] md:min-h-[440px] overflow-hidden">
         {heroImg ? (
-          <img
+          <CarPhoto
             src={heroImg.url}
             alt={`${car.brand} ${car.model}`}
-            className="absolute inset-0 w-full h-full object-cover object-bottom"
+            className="absolute inset-0 w-full h-full"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-8xl">
@@ -523,10 +524,10 @@ export default function CarDetail() {
                         : 'border-transparent opacity-50 hover:opacity-100'
                     }`}
                   >
-                    <img
+                    <CarPhoto
                       src={img.url}
                       alt=""
-                      className="w-full h-full object-cover object-bottom bg-gray-100"
+                      className="w-full h-full bg-gray-100"
                     />
                   </button>
                 ))}
@@ -1034,10 +1035,10 @@ export default function CarDetail() {
                   >
                     <div className="h-44 bg-gray-100 overflow-hidden relative">
                       {img ? (
-                        <img
+                        <CarPhoto
                           src={img.url}
                           alt=""
-                          className="w-full h-full object-cover object-bottom group-hover:scale-105 transition-transform duration-500"
+                          className="w-full h-full group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-4xl">

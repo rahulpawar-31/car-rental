@@ -8,6 +8,7 @@ import Spinner from '../components/ui/Spinner'
 import Button from '../components/ui/Button'
 import { toast } from 'sonner'
 import { Shield, Calendar, Car, CreditCard, Smartphone, Building2 } from 'lucide-react'
+import CarPhoto from '../components/ui/CarPhoto'
 
 function loadRazorpayScript() {
   return new Promise(resolve => {
@@ -165,10 +166,10 @@ export default function Payment() {
             <div className="flex gap-3 mb-4 pb-4 border-b border-gray-100">
               <div className="w-16 h-12 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                 {booking.car?.images?.[0]?.url ? (
-                  <img
+                  <CarPhoto
                     src={booking.car.images[0].url}
                     alt=""
-                    className="w-full h-full object-cover object-bottom"
+                    className="w-full h-full"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xl">🚗</div>

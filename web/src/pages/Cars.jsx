@@ -18,6 +18,7 @@ import {
 import { FaFacebookF, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa'
 import { getCars, getCarFilters } from '../api/cars'
 import { getLocationById } from '../api/locations'
+import CarPhoto from '../components/ui/CarPhoto'
 import Spinner from '../components/ui/Spinner'
 import { reviewCountLabel } from '../lib/format'
 
@@ -69,10 +70,10 @@ function CarListCard({ car, pickupLocation, dropLocation }) {
       {/* Image */}
       <div className="relative w-full aspect-[16/10] shrink-0 bg-gray-100 overflow-hidden">
         {primaryImage ? (
-          <img
+          <CarPhoto
             src={primaryImage.url}
             alt={`${car.brand} ${car.model}`}
-            className="w-full h-full object-cover object-bottom group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
           <div className="flex items-center justify-center text-6xl w-full h-full bg-gradient-to-br from-gray-100 to-gray-200">

@@ -268,6 +268,14 @@ export default function Locations() {
                           {isPickup ? '✓ Pickup' : 'Set Pickup'}
                         </button>
                       )}
+                      {!canDrop && (
+                        <span
+                          className="flex-1 text-center text-xs font-bold py-2 rounded-lg border-2 border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                          title="Cars cannot be returned to this branch"
+                        >
+                          Pickup only
+                        </span>
+                      )}
                       {canDrop && (
                         <button
                           onClick={() => handleDrop(loc)}
