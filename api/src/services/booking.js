@@ -1,6 +1,7 @@
 import Booking from "../model/booking.model.js";
 import Car from "../model/car.model.js";
 import Coupon from "../model/coupon.model.js";
+import Location from "../model/location.model.js";
 import Payment from "../model/payment.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { sendBookingConfirmationEmail } from "../utils/email.utils.js";
@@ -94,6 +95,17 @@ export function deriveTracking(booking, now = new Date()) {
   return { trackingStatus, timeInfo };
 }
 
+/**
+ * A chosen drop-off branch must exist, be active and accept returns. The UI already greys out
+ * pickup-only branches, but the API is what actually decides, so it checks too.
+ * @param {string} dropLocationId
+ */
+async function assertDropLocationAllowed(dropLocationId) {
+  const location = await Location.findById(dropLocationId);
+  if (!location || !location.isActive) throw new AppError("Drop-off location not found", 400);
+  if (location.isDropAvailable === false) throw new AppError(`Cars cannot be returned to ${location.name}`, 400);
+}
+
 /** Gives back a coupon use claimed for a booking that did not get created. */
 function releaseCouponClaim(couponId, userId) {
   return Coupon.updateOne({ _id: couponId }, { $inc: { usageCount: -1 }, $pull: { usedBy: userId } });
@@ -117,6 +129,9 @@ export async function createBooking({ user, input }, { sendEmail = sendBookingCo
 
   const car = await Car.findById(carId);
   if (!car || !car.isActive || !car.isAvailable) throw new AppError("Car not available", 404);
+
+  // Before the coupon is claimed, so a rejected drop-off has nothing to roll back.
+  if (dropLocationId) await assertDropLocationAllowed(dropLocationId);
 
   // Fix #7: price by rental type. Request-shape validation stays here (not in
   // computeBookingQuote) — it's about what the client sent, not the pricing math.

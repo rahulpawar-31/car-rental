@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import Booking from "../src/model/booking.model.js";
 import Car from "../src/model/car.model.js";
 import Coupon from "../src/model/coupon.model.js";
+import Location from "../src/model/location.model.js";
 import Payment from "../src/model/payment.model.js";
 import {
   parseRentalWindow,
@@ -190,6 +191,53 @@ describe("createBooking", () => {
     sequence(Car, "findById", { ...car, isAvailable: false });
 
     await rejectsWith(createBooking({ user, input: input() }, noEmail()), 404, "Car not available");
+  });
+
+  describe("drop-off location", () => {
+    const withDrop = () => ({ ...input(), dropLocationId: "loc1" });
+
+    it("rejects a branch that does not accept returns, before claiming a coupon or creating anything", async () => {
+      sequence(Booking, "findOne", null);
+      sequence(Car, "findById", car);
+      sequence(Location, "findById", { _id: "loc1", name: "Pune Kothrud", isActive: true, isDropAvailable: false });
+      const claim = mock.method(Coupon, "findOneAndUpdate", async () => ({}));
+      const create = mock.method(Booking, "create", async () => ({}));
+
+      await rejectsWith(createBooking({ user, input: { ...withDrop(), couponCode: "SAVE10" } }, noEmail()), 400, "Cars cannot be returned to Pune Kothrud");
+      assert.equal(claim.mock.callCount(), 0);
+      assert.equal(create.mock.callCount(), 0);
+    });
+
+    it("rejects a branch that does not exist or is inactive", async () => {
+      sequence(Booking, "findOne", null);
+      sequence(Car, "findById", car);
+      sequence(Location, "findById", null, { _id: "loc1", name: "Old", isActive: false, isDropAvailable: true });
+
+      await rejectsWith(createBooking({ user, input: withDrop() }, noEmail()), 400, "Drop-off location not found");
+      await rejectsWith(createBooking({ user, input: withDrop() }, noEmail()), 400, "Drop-off location not found");
+    });
+
+    it("books normally for a branch that accepts returns (including one that never set the flag)", async () => {
+      sequence(Booking, "findOne", null, null);
+      sequence(Car, "findById", car);
+      sequence(Location, "findById", { _id: "loc1", name: "Mumbai Hub", isActive: true });
+      const create = mock.method(Booking, "create", async () => ({ _id: "b1", bookingNumber: "BK1" }));
+      sequence(Booking, "findById", chain({ _id: "b1" }));
+
+      await createBooking({ user, input: withDrop() }, noEmail());
+      assert.equal(create.mock.calls[0].arguments[0].dropLocation, "loc1");
+    });
+
+    it("does not look up a location when none was chosen (drop at the pickup branch)", async () => {
+      sequence(Booking, "findOne", null, null);
+      sequence(Car, "findById", car);
+      const lookup = mock.method(Location, "findById", async () => null);
+      mock.method(Booking, "create", async () => ({ _id: "b1", bookingNumber: "BK1" }));
+      sequence(Booking, "findById", chain({ _id: "b1" }));
+
+      await createBooking({ user, input: input() }, noEmail());
+      assert.equal(lookup.mock.callCount(), 0);
+    });
   });
 
   it("creates a priced pending booking, returns it populated and sends the confirmation email", async () => {
