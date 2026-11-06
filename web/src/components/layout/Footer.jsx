@@ -4,9 +4,11 @@ import { Phone, MapPin, Mail } from 'lucide-react'
 import { FaFacebookF, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa'
 import { toast } from 'sonner'
 import Button from '../ui/Button'
+import useAuthStore from '../../store/authStore'
 
 export default function Footer() {
   const [email, setEmail] = useState('')
+  const { user } = useAuthStore()
 
   const handleSubscribe = e => {
     e.preventDefault()
@@ -160,9 +162,11 @@ export default function Footer() {
                 <Link to="/dashboard" className="hover:text-teal-400 transition-colors">
                   My Bookings
                 </Link>
-                <Link to="/register" className="hover:text-teal-400 transition-colors">
-                  Sign Up
-                </Link>
+                {!user && (
+                  <Link to="/register" className="hover:text-teal-400 transition-colors">
+                    Sign Up
+                  </Link>
+                )}
               </div>
             </div>
           </div>

@@ -7,12 +7,18 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 
+// The real store persists to localStorage, which this test environment does not provide.
+let mockUser = null
+vi.mock('../store/authStore', () => ({
+  default: () => ({ user: mockUser }),
+}))
+
 function renderFooter() {
   return render(<MemoryRouter><Footer /></MemoryRouter>)
 }
 
 describe('Footer', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockUser = null })
 
   test('newsletter form triggers success toast on submit', () => {
     renderFooter()
@@ -50,6 +56,17 @@ describe('Footer', () => {
       link.dispatchEvent(event)
       expect(event.defaultPrevented).toBe(true)
     })
+  })
+
+  test('shows the Sign Up link to visitors', () => {
+    renderFooter()
+    expect(screen.getByRole('link', { name: 'Sign Up' })).toBeInTheDocument()
+  })
+
+  test('hides the Sign Up link once signed in', () => {
+    mockUser = { name: 'Priya' }
+    renderFooter()
+    expect(screen.queryByRole('link', { name: 'Sign Up' })).not.toBeInTheDocument()
   })
 
   test('renders copyright notice with current year', () => {

@@ -3,6 +3,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import CarDetail from '../pages/CarDetail'
 import { createBooking } from '../api/bookings'
 import { getLocations } from '../api/locations'
+import { getCarById } from '../api/cars'
 
 const MOCK_CAR = {
   _id: 'car1',
@@ -196,5 +197,27 @@ describe('CarDetail booking form', () => {
 
     expect(screen.getByText(/duration \(hours\)/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/drop off date/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('CarDetail when the car cannot be loaded', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear()
+  })
+
+  test('explains a missing car (404) instead of redirecting to the car list', async () => {
+    getCarById.mockRejectedValueOnce({ response: { status: 404 } })
+    renderCarDetail()
+    expect(await screen.findByText(/no longer available/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /browse cars/i })).toHaveAttribute('href', '/cars')
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  test('still goes back to the list, with an error toast, on other failures', async () => {
+    const { toast } = await import('sonner')
+    getCarById.mockRejectedValueOnce(new Error('Network Error'))
+    renderCarDetail()
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/cars'))
+    expect(toast.error).toHaveBeenCalledWith('Could not load this car')
   })
 })

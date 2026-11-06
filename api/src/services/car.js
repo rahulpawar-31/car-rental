@@ -37,7 +37,7 @@ export const CAR_SORT_OPTIONS = {
   "price-asc": { pricePerDay: 1 },
   "price-desc": { pricePerDay: -1 },
   "rating-desc": { rating: -1 },
-  "model-asc": { model: 1 },
+  "model-asc": { name: 1 },
   "-totalRentals": { totalRentals: -1 },
 };
 
@@ -145,15 +145,17 @@ export async function listCars(params) {
     }
   }
 
-  const [cars, total] = await Promise.all([
-    Car.find(query)
-      .populate("location", "name city")
-      .sort(CAR_SORT_OPTIONS[sort] || { createdAt: -1 })
-      .skip((pageNum - 1) * limitNum)
-      .limit(limitNum)
-      .lean(),
-    Car.countDocuments(query),
-  ]);
+  let carsQuery = Car.find(query)
+    .populate("location", "name city")
+    .sort(CAR_SORT_OPTIONS[sort] || { createdAt: -1 })
+    .skip((pageNum - 1) * limitNum)
+    .limit(limitNum);
+  // Case-insensitive A-Z for the name sort ("EV6" must not sort before "Elevate"). Not applied to
+  // every sort because collation also changes how the filter's equality matches compare, and a
+  // $text search only works with the default collation.
+  if (sort === "model-asc" && !query.$text) carsQuery = carsQuery.collation({ locale: "en", strength: 2 });
+
+  const [cars, total] = await Promise.all([carsQuery.lean(), Car.countDocuments(query)]);
 
   return {
     cars,
