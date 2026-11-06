@@ -27,3 +27,31 @@ describe('CarPhoto', () => {
     expect(screen.getByAltText('A').className).toBe('object-cover w-full h-full')
   })
 })
+
+describe('CarPhoto placeholder for photos of the wrong model (#88)', () => {
+  test.each([
+    '/cars/renault-kwid.jpg',
+    '/cars/renault-kwid-climber.jpg',
+    '/cars/tata-altroz.jpg',
+    '/cars/toyota-glanza.jpg',
+    '/cars/honda-jazz.jpg',
+    '/cars/honda-amaze.jpg',
+    'https://example.com/cars/honda-jazz.jpg?v=2',
+  ])('shows "photo coming soon" instead of %s', src => {
+    render(<CarPhoto src={src} alt="Some car" className="w-full h-full" />)
+    expect(screen.getByRole('img', { name: /photo coming soon/i })).toBeInTheDocument()
+    expect(screen.getByText('Photo coming soon')).toBeInTheDocument()
+    expect(document.querySelector('img')).toBeNull()
+  })
+
+  test('still shows the real photo for every other car', () => {
+    render(<CarPhoto src="/cars/maruti-swift.jpg" alt="Swift" />)
+    expect(screen.getByAltText('Swift')).toHaveAttribute('src', '/cars/maruti-swift.jpg')
+    expect(screen.queryByText('Photo coming soon')).not.toBeInTheDocument()
+  })
+
+  test('does not mistake a similar name for a flagged one', () => {
+    render(<CarPhoto src="/cars/honda-jazz-new.jpg" alt="Jazz" />)
+    expect(screen.getByAltText('Jazz')).toBeInTheDocument()
+  })
+})
