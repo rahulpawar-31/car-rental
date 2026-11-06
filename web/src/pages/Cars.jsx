@@ -15,7 +15,6 @@ import {
   Check,
   SlidersHorizontal,
 } from 'lucide-react'
-import { FaFacebookF, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa'
 import { getCars, getCarFilters } from '../api/cars'
 import { getLocationById } from '../api/locations'
 import CarPhoto from '../components/ui/CarPhoto'
@@ -658,31 +657,6 @@ export default function Cars() {
                       <p className="text-xs text-gray-400 mt-1">{tip.date}</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Connect with Us */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-5">
-              <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">
-                Connect with Us
-              </h3>
-              <div className="flex gap-2">
-                {[
-                  { label: 'Facebook', Icon: FaFacebookF },
-                  { label: 'Twitter', Icon: FaTwitter },
-                  { label: 'Instagram', Icon: FaInstagram },
-                  { label: 'YouTube', Icon: FaYoutube },
-                ].map(({ label, Icon }) => (
-                  <a
-                    key={label}
-                    href="#"
-                    onClick={e => e.preventDefault()}
-                    aria-label={label}
-                    className="w-9 h-9 rounded-full border border-gray-200 text-gray-500 flex items-center justify-center hover:border-teal-400 hover:text-teal-500 transition-colors"
-                  >
-                    <Icon size={13} />
-                  </a>
                 ))}
               </div>
             </div>

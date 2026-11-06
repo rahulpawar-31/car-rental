@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Share2, Bookmark } from 'lucide-react'
-import { FaFacebookF, FaTwitter, FaYoutube, FaInstagram } from 'react-icons/fa'
 import { toast } from 'sonner'
 import { ARTICLES } from '../data/articles'
 import Button from '../components/ui/Button'
@@ -69,13 +68,6 @@ export default function BlogPost() {
     toast.success('Subscribed! Thank you.')
     setNewsletterEmail('')
   }
-
-  const SOCIAL = [
-    { label: 'Facebook', Icon: FaFacebookF },
-    { label: 'Twitter', Icon: FaTwitter },
-    { label: 'YouTube', Icon: FaYoutube },
-    { label: 'Instagram', Icon: FaInstagram },
-  ]
 
   return (
     <div className="bg-white min-h-screen">
@@ -338,26 +330,6 @@ export default function BlogPost() {
                         </p>
                       </div>
                     </Link>
-                  ))}
-                </div>
-              </div>
-
-              {/* Connect with Us */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-3 border-b border-gray-200">
-                  Connect with Us
-                </h3>
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  {SOCIAL.map(({ label, Icon }) => (
-                    <a
-                      key={label}
-                      href="#"
-                      onClick={e => e.preventDefault()}
-                      aria-label={label}
-                      className="w-9 h-9 rounded-full border border-gray-200 text-gray-500 flex items-center justify-center hover:border-teal-400 hover:text-teal-500 transition-colors"
-                    >
-                      <Icon size={13} />
-                    </a>
                   ))}
                 </div>
               </div>

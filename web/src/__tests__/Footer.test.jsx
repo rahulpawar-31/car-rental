@@ -36,26 +36,12 @@ describe('Footer', () => {
     expect(emailInput.value).toBe('')
   })
 
-  test('social links do not navigate (preventDefault)', () => {
+  test('has no placeholder links that go nowhere', () => {
     renderFooter()
-    const socialLinks = screen.getAllByRole('link', { name: /facebook|twitter|instagram|youtube/i })
-    expect(socialLinks.length).toBeGreaterThan(0)
-    socialLinks.forEach(link => {
-      const event = new MouseEvent('click', { bubbles: true, cancelable: true })
-      link.dispatchEvent(event)
-      expect(event.defaultPrevented).toBe(true)
-    })
-  })
-
-  test('privacy policy and terms links do not navigate', () => {
-    renderFooter()
-    const privacyLink = screen.getByText(/privacy policy/i)
-    const termsLink   = screen.getByText(/terms of service/i)
-    ;[privacyLink, termsLink].forEach(link => {
-      const event = new MouseEvent('click', { bubbles: true, cancelable: true })
-      link.dispatchEvent(event)
-      expect(event.defaultPrevented).toBe(true)
-    })
+    const hrefs = screen.getAllByRole('link').map(a => a.getAttribute('href'))
+    expect(hrefs.length).toBeGreaterThan(0)
+    hrefs.forEach(href => expect(href).not.toBe('#'))
+    expect(screen.queryByText(/privacy policy|terms of service/i)).not.toBeInTheDocument()
   })
 
   test('shows the Sign Up link to visitors', () => {
