@@ -142,6 +142,14 @@ export default function Footer() {
           <p className="text-xs text-gray-600">
             © {new Date().getFullYear()} DriveEase. All rights reserved.
           </p>
+          <div className="flex items-center gap-4 text-xs text-gray-600">
+            <Link to="/privacy" className="hover:text-gray-400 transition-colors">
+              Privacy Policy
+            </Link>
+            <Link to="/terms" className="hover:text-gray-400 transition-colors">
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
