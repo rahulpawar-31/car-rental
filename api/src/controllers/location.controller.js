@@ -11,7 +11,16 @@ export const getLocations = async (req, res) => {
   if (city) query.city = new RegExp(escapeRegex(city), "i");
   if (search) query.$text = { $search: search };
 
-  const locations = await Location.find(query).sort({ city: 1, name: 1 }).lean();
+  const found = await Location.find(query).sort({ city: 1, name: 1 }).lean();
+
+  // The stored carCount is only ever written by the seed script, so it goes stale as soon as a
+  // car is added or removed. Count the active cars per branch at read time instead.
+  const counts = await Car.aggregate([
+    { $match: { isActive: true, location: { $in: found.map((l) => l._id) } } },
+    { $group: { _id: "$location", count: { $sum: 1 } } },
+  ]);
+  const countByLocation = new Map(counts.map((c) => [String(c._id), c.count]));
+  const locations = found.map((l) => ({ ...l, carCount: countByLocation.get(String(l._id)) ?? 0 }));
 
   res.json({ success: true, data: { locations } });
 };

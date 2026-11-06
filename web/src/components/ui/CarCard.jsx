@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Star, Users, Fuel, Settings, MapPin } from 'lucide-react'
+import CarPhoto from './CarPhoto'
 
 export default function CarCard({ car }) {
   const primaryImage = car.images?.find(i => i.isPrimary) || car.images?.[0]
@@ -12,10 +13,10 @@ export default function CarCard({ car }) {
       {/* Image */}
       <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden shrink-0">
         {primaryImage ? (
-          <img
+          <CarPhoto
             src={primaryImage.url}
             alt={`${car.brand} ${car.model}`}
-            className="w-full h-full object-cover object-bottom group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-br from-gray-100 to-gray-200">

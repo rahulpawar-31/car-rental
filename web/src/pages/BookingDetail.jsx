@@ -17,6 +17,7 @@ import {
   Clock,
   Tag,
 } from 'lucide-react'
+import CarPhoto from '../components/ui/CarPhoto'
 
 const STATUS_COLOR = {
   pending: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -131,7 +132,7 @@ export default function BookingDetail() {
             <div className="flex gap-4">
               <div className="w-20 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                 {car.images?.[0] ? (
-                  <img src={car.images[0].url} alt="" className="w-full h-full object-cover object-bottom" />
+                  <CarPhoto src={car.images[0].url} alt="" className="w-full h-full" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-2xl">🚗</div>
                 )}

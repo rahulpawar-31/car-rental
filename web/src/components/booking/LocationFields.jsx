@@ -86,13 +86,15 @@ export default function LocationFields({
               className="flex-1 text-sm outline-none text-gray-800 bg-transparent"
             >
               <option value="">— Same as pickup —</option>
-              {locations
-                .filter(l => l.isDropAvailable !== false)
-                .map(l => (
-                  <option key={l._id} value={l._id}>
+              {locations.map(l => {
+                const canDrop = l.isDropAvailable !== false
+                return (
+                  <option key={l._id} value={l._id} disabled={!canDrop}>
                     {l.name}, {l.city}
+                    {canDrop ? '' : ' (pickup only)'}
                   </option>
-                ))}
+                )
+              })}
             </select>
           )}
         </div>

@@ -13,6 +13,7 @@ import LocationFields from '../components/booking/LocationFields'
 import { toast } from 'sonner'
 import { TIME_SLOTS, HOUR_OPTIONS } from '../constants/booking'
 import { deriveRentalRates, computeBaseAmount, computeTaxAndTotal } from '../lib/pricing'
+import CarPhoto from '../components/ui/CarPhoto'
 
 const RENTAL_LABELS = { day: 'Per Day', hour: 'Per Hour', airport: 'Airport Transfer' }
 
@@ -220,10 +221,10 @@ export default function Booking() {
       {/* Hero */}
       <div className="relative min-h-[420px] md:min-h-[520px] overflow-hidden bg-gray-900">
         {primaryImg ? (
-          <img
+          <CarPhoto
             src={primaryImg.url}
             alt={`${car.brand} ${car.model}`}
-            className="absolute inset-0 w-full h-full object-cover object-bottom"
+            className="absolute inset-0 w-full h-full"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-teal-900" />
@@ -670,7 +671,7 @@ export default function Booking() {
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               <div className="h-44 bg-gray-100 overflow-hidden">
                 {primaryImg ? (
-                  <img src={primaryImg.url} alt="" className="w-full h-full object-cover object-bottom" />
+                  <CarPhoto src={primaryImg.url} alt="" className="w-full h-full" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-5xl">🚗</div>
                 )}

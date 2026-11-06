@@ -32,6 +32,7 @@ import { toast } from 'sonner'
 import Spinner from '../components/ui/Spinner'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import Button from '../components/ui/Button'
+import CarPhoto from '../components/ui/CarPhoto'
 
 const TABS = [
   { id: 'info', label: 'Personal Info', icon: User },
@@ -575,10 +576,10 @@ export default function Profile() {
                   >
                     <div className="w-28 h-24 bg-gray-100 shrink-0">
                       {car.images?.[0]?.url ? (
-                        <img
+                        <CarPhoto
                           src={car.images[0].url}
                           alt=""
-                          className="w-full h-full object-cover object-bottom"
+                          className="w-full h-full"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-2xl">

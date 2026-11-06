@@ -385,6 +385,7 @@ describe("car / review / location routes (over HTTP, auth stubbed, no database)"
 
     it("GET /locations still defaults to active locations", async () => {
       const find = stub(Location, "find", () => chain([]));
+      stub(Car, "aggregate", async () => []);
       const res = await call("GET", "/locations?city=Pune");
       assert.equal(res.status, 200);
       assert.equal(find.mock.calls[0].arguments[0].isActive, true);

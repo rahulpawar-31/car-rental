@@ -18,6 +18,7 @@ import CarCard from '../components/ui/CarCard'
 import Button from '../components/ui/Button'
 import useAuthStore from '../store/authStore'
 import { ARTICLES } from '../data/articles'
+import CarPhoto from '../components/ui/CarPhoto'
 
 const WHY_CHOOSE = [
   {
@@ -393,10 +394,10 @@ export default function Home() {
                 className="relative h-56 rounded-2xl overflow-hidden group bg-gray-800 text-left"
               >
                 {imgUrl ? (
-                  <img
+                  <CarPhoto
                     src={imgUrl}
                     alt={brandName}
-                    className="w-full h-full object-cover object-bottom opacity-75 group-hover:opacity-95 transition-all duration-500 group-hover:scale-110"
+                    className="w-full h-full opacity-75 group-hover:opacity-95 transition-all duration-500 group-hover:scale-110"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-6xl bg-gradient-to-br from-gray-700 to-gray-900">
@@ -438,10 +439,10 @@ export default function Home() {
                   className="relative h-56 rounded-2xl overflow-hidden group bg-gray-800 text-left"
                 >
                   {imgUrl ? (
-                    <img
+                    <CarPhoto
                       src={imgUrl}
                       alt={typeName}
-                      className="w-full h-full object-cover object-bottom opacity-75 group-hover:opacity-95 transition-all duration-500 group-hover:scale-110"
+                      className="w-full h-full opacity-75 group-hover:opacity-95 transition-all duration-500 group-hover:scale-110"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-6xl bg-gradient-to-br from-gray-700 to-gray-900">

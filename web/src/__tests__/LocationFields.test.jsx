@@ -61,11 +61,13 @@ describe('LocationFields', () => {
     expect(select.querySelectorAll('option')).toHaveLength(3) // placeholder + 2 pickup-available branches
   })
 
-  test('drop-off select only lists branches with isDropAvailable !== false', () => {
+  test('drop-off select shows branches without drop-off as disabled "pickup only" options', () => {
     setup()
     const select = screen.getByLabelText(/drop-off location/i)
-    expect(within(select).getByRole('option', { name: /mg road branch/i })).toBeInTheDocument()
-    expect(select.querySelectorAll('option')).toHaveLength(2) // placeholder + 1 drop-available branch (loc2 excluded)
+    expect(select.querySelectorAll('option')).toHaveLength(3) // placeholder + both branches
+    expect(within(select).getByRole('option', { name: /mg road branch/i })).toBeEnabled()
+    const pickupOnly = within(select).getByRole('option', { name: /airport branch.*\(pickup only\)/i })
+    expect(pickupOnly).toBeDisabled()
   })
 
   test('picking a drop-off branch flips Pickup Location into a free-text address input', () => {

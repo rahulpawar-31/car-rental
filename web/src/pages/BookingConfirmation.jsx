@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { CheckCircle, Calendar, MapPin, Car, CreditCard, ArrowRight } from 'lucide-react'
 import { getBookingById } from '../api/bookings'
 import Spinner from '../components/ui/Spinner'
+import CarPhoto from '../components/ui/CarPhoto'
 
 const fmtDate = d =>
   d
@@ -57,7 +58,7 @@ export default function BookingConfirmation() {
         <div className="flex items-center gap-4 p-5 border-b border-gray-100">
           <div className="w-20 h-14 bg-gray-100 rounded-lg overflow-hidden shrink-0">
             {car?.images?.[0]?.url ? (
-              <img src={car.images[0].url} alt="" className="w-full h-full object-cover object-bottom" />
+              <CarPhoto src={car.images[0].url} alt="" className="w-full h-full" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-2xl">🚗</div>
             )}
