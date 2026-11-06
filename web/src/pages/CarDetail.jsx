@@ -29,12 +29,12 @@ import { getErrorMessage } from '../api/errors'
 import useAuthStore from '../store/authStore'
 import Spinner from '../components/ui/Spinner'
 import Button from '../components/ui/Button'
+import CarPhoto from '../components/ui/CarPhoto'
 import PersonalInfoFields from '../components/booking/PersonalInfoFields'
 import LocationFields from '../components/booking/LocationFields'
 import { toast } from 'sonner'
 import { TIME_SLOTS, HOUR_OPTIONS } from '../constants/booking'
 import { deriveRentalRates } from '../lib/pricing'
-import CarPhoto from '../components/ui/CarPhoto'
 
 const MONTH_NAMES = [
   'January',
