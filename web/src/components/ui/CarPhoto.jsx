@@ -23,7 +23,7 @@ const WRONG_MODEL_PHOTOS = new Set([
   'honda-amaze.jpg',
 ])
 
-const fileName = src => String(src ?? '').split(/[?#]/)[0].split('/').pop()
+const fileName = src => String(src ?? '').split(/[?#]/)[0].split('/').pop().toLowerCase()
 
 /**
  * A car photo that fills its box without cropping portrait images down to the bumper.
@@ -36,7 +36,7 @@ export default function CarPhoto({ src, className = '', style, onLoad, alt = '',
   const [measured, setMeasured] = useState({ src: null, position: WIDE_POSITION })
   const position = measured.src === src ? measured.position : WIDE_POSITION
 
-  if (WRONG_MODEL_PHOTOS.has(fileName(props.src))) {
+  if (WRONG_MODEL_PHOTOS.has(fileName(src))) {
     // @container lets the label hide itself in small thumbnails, where it would not fit.
     return (
       <div

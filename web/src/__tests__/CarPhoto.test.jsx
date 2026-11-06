@@ -50,6 +50,7 @@ describe('CarPhoto placeholder for photos of the wrong model (#88)', () => {
     '/cars/honda-jazz.jpg',
     '/cars/honda-amaze.jpg',
     'https://example.com/cars/honda-jazz.jpg?v=2',
+    '/cars/Honda-Jazz.JPG',
   ])('shows "photo coming soon" instead of %s', src => {
     render(<CarPhoto src={src} alt="Some car" className="w-full h-full" />)
     expect(screen.getByRole('img', { name: /photo coming soon/i })).toBeInTheDocument()
