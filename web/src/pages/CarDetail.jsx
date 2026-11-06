@@ -34,6 +34,7 @@ import LocationFields from '../components/booking/LocationFields'
 import { toast } from 'sonner'
 import { TIME_SLOTS, HOUR_OPTIONS } from '../constants/booking'
 import { deriveRentalRates } from '../lib/pricing'
+import { reviewCountLabel } from '../lib/format'
 
 const MONTH_NAMES = [
   'January',
@@ -200,6 +201,7 @@ export default function CarDetail() {
   const [similar, setSimilar] = useState([])
   const [bookedRanges, setBookedRanges] = useState([])
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [activeImg, setActiveImg] = useState(0)
   const [saved, setSaved] = useState(false)
   const [rentalType, setRentalType] = useState('day')
@@ -239,6 +241,7 @@ export default function CarDetail() {
     // longer for the currently-mounted `id`.
     let ignore = false
     setLoading(true)
+    setNotFound(false)
     Promise.all([getCarById(id), getCarReviews(id)])
       .then(([carRes, reviewRes]) => {
         if (ignore) return
@@ -253,8 +256,17 @@ export default function CarDetail() {
           })
           .catch(() => {})
       })
-      .catch(() => {
-        if (!ignore) navigate('/cars')
+      .catch(err => {
+        if (ignore) return
+        // A missing or malformed car id gets an explanation; any other failure (network, 5xx)
+        // keeps the old behaviour of going back to the list, now with a toast.
+        const status = err?.response?.status
+        if (status === 404 || status === 400) {
+          setNotFound(true)
+          return
+        }
+        toast.error('Could not load this car')
+        navigate('/cars')
       })
       .finally(() => {
         if (!ignore) setLoading(false)
@@ -411,6 +423,22 @@ export default function CarDetail() {
         <Spinner size="lg" />
       </div>
     )
+  if (notFound)
+    return (
+      <div className="text-center py-24 px-4">
+        <div className="text-6xl mb-4">🚗</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">This car is no longer available</h1>
+        <p className="text-gray-500 text-sm mb-6">
+          It may have been removed, or the link is incorrect.
+        </p>
+        <Link
+          to="/cars"
+          className="inline-block bg-teal-500 hover:bg-teal-600 text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-colors"
+        >
+          Browse Cars
+        </Link>
+      </div>
+    )
   if (!car) return null
 
   const included = car.features?.length ? car.features : DEFAULT_INCLUDED
@@ -520,7 +548,7 @@ export default function CarDetail() {
                           className={`w-4 h-4 ${i < Math.round(car.rating) ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`}
                         />
                       ))}
-                      <span className="text-sm text-gray-500 ml-1">{car.reviewCount} reviews</span>
+                      <span className="text-sm text-gray-500 ml-1">{reviewCountLabel(car.reviewCount)}</span>
                     </div>
                   )}
                   {car.isFeatured && (
@@ -1030,7 +1058,7 @@ export default function CarDetail() {
                             />
                           ))}
                           <span className="text-xs text-gray-400 ml-0.5">
-                            {c.reviewCount} reviews
+                            {reviewCountLabel(c.reviewCount)}
                           </span>
                         </div>
                       )}

@@ -8,7 +8,7 @@ afterEach(() => mock.restoreAll());
 
 const chain = (result) => {
   const q = {
-    populate: () => q, sort: () => q, skip: () => q, limit: () => q, select: () => q, lean: () => q,
+    populate: () => q, sort: () => q, skip: () => q, limit: () => q, select: () => q, lean: () => q, collation: () => q,
     then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
   };
   return q;
