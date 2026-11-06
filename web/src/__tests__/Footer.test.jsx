@@ -41,7 +41,12 @@ describe('Footer', () => {
     const hrefs = screen.getAllByRole('link').map(a => a.getAttribute('href'))
     expect(hrefs.length).toBeGreaterThan(0)
     hrefs.forEach(href => expect(href).not.toBe('#'))
-    expect(screen.queryByText(/privacy policy|terms of service/i)).not.toBeInTheDocument()
+  })
+
+  test('links to the real Privacy Policy and Terms of Service pages', () => {
+    renderFooter()
+    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy')
+    expect(screen.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms')
   })
 
   test('shows the Sign Up link to visitors', () => {

@@ -22,6 +22,8 @@ import Admin from './pages/Admin'
 import About from './pages/About'
 import Contact from './pages/Contact'
 import BlogPost from './pages/BlogPost'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -59,6 +61,8 @@ export default function App() {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/blog/:id" element={<BlogPost />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
 
           <Route path="/dashboard" element={
             <ProtectedRoute><Dashboard /></ProtectedRoute>
