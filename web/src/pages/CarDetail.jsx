@@ -34,6 +34,7 @@ import LocationFields from '../components/booking/LocationFields'
 import { toast } from 'sonner'
 import { TIME_SLOTS, HOUR_OPTIONS } from '../constants/booking'
 import { deriveRentalRates } from '../lib/pricing'
+import { reviewCountLabel } from '../lib/format'
 
 const MONTH_NAMES = [
   'January',
@@ -547,7 +548,7 @@ export default function CarDetail() {
                           className={`w-4 h-4 ${i < Math.round(car.rating) ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`}
                         />
                       ))}
-                      <span className="text-sm text-gray-500 ml-1">{car.reviewCount} {car.reviewCount === 1 ? 'review' : 'reviews'}</span>
+                      <span className="text-sm text-gray-500 ml-1">{reviewCountLabel(car.reviewCount)}</span>
                     </div>
                   )}
                   {car.isFeatured && (
@@ -1057,7 +1058,7 @@ export default function CarDetail() {
                             />
                           ))}
                           <span className="text-xs text-gray-400 ml-0.5">
-                            {c.reviewCount} {c.reviewCount === 1 ? 'review' : 'reviews'}
+                            {reviewCountLabel(c.reviewCount)}
                           </span>
                         </div>
                       )}

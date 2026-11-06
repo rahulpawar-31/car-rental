@@ -19,6 +19,7 @@ import { FaFacebookF, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa'
 import { getCars, getCarFilters } from '../api/cars'
 import { getLocationById } from '../api/locations'
 import Spinner from '../components/ui/Spinner'
+import { reviewCountLabel } from '../lib/format'
 
 const TRANSMISSIONS = ['automatic', 'manual']
 const SORT_OPTIONS = [
@@ -113,7 +114,7 @@ function CarListCard({ car, pickupLocation, dropLocation }) {
                 />
               ))}
               {car.reviewCount > 0 && (
-                <span className="text-xs text-gray-400 ml-1">{car.reviewCount} {car.reviewCount === 1 ? 'review' : 'reviews'}</span>
+                <span className="text-xs text-gray-400 ml-1">{reviewCountLabel(car.reviewCount)}</span>
               )}
             </div>
           </div>

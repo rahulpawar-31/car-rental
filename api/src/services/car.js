@@ -145,17 +145,23 @@ export async function listCars(params) {
     }
   }
 
+  // Case-insensitive A-Z for the name sort ("EV6" must not sort before "Elevate"). Not applied to
+  // every sort because collation also changes how the filter's equality matches compare, and a
+  // $text search only works with the default collation. When it is applied, the count uses it too so
+  // the total always describes the same set of cars the page was cut from.
+  const collation = sort === "model-asc" && !query.$text ? { locale: "en", strength: 2 } : undefined;
+
   let carsQuery = Car.find(query)
     .populate("location", "name city")
     .sort(CAR_SORT_OPTIONS[sort] || { createdAt: -1 })
     .skip((pageNum - 1) * limitNum)
     .limit(limitNum);
-  // Case-insensitive A-Z for the name sort ("EV6" must not sort before "Elevate"). Not applied to
-  // every sort because collation also changes how the filter's equality matches compare, and a
-  // $text search only works with the default collation.
-  if (sort === "model-asc" && !query.$text) carsQuery = carsQuery.collation({ locale: "en", strength: 2 });
+  if (collation) carsQuery = carsQuery.collation(collation);
 
-  const [cars, total] = await Promise.all([carsQuery.lean(), Car.countDocuments(query)]);
+  const [cars, total] = await Promise.all([
+    carsQuery.lean(),
+    Car.countDocuments(query, collation ? { collation } : undefined),
+  ]);
 
   return {
     cars,

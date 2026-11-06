@@ -157,8 +157,8 @@ describe("listCars", () => {
   const stubList = (cars = [{ _id: "c1" }], total = 25) => {
     const q = chain(cars);
     const find = mock.method(Car, "find", () => q);
-    mock.method(Car, "countDocuments", async () => total);
-    return { q, find };
+    const count = mock.method(Car, "countDocuments", async () => total);
+    return { q, find, count };
   };
 
   it("pages 12 at a time from page 1 by default, newest first", async () => {
@@ -183,20 +183,24 @@ describe("listCars", () => {
   });
 
   it("sorts by the visible car name, case-insensitively, for the model sort", async () => {
-    const { q } = stubList();
+    const { q, count } = stubList();
     await listCars({ sort: "model-asc" });
     assert.deepEqual(q.calls.sort, [{ name: 1 }]);
     assert.deepEqual(q.calls.collation, [{ locale: "en", strength: 2 }]);
+    // the total is counted with the same collation as the page of cars
+    assert.deepEqual(count.mock.calls[0].arguments[1], { collation: { locale: "en", strength: 2 } });
   });
 
   it("leaves other sorts and text searches on the default collation", async () => {
-    const { q } = stubList();
+    const { q, count } = stubList();
     await listCars({ sort: "price-asc" });
     assert.equal(q.calls.collation, undefined);
+    assert.equal(count.mock.calls[0].arguments[1], undefined);
 
-    const { q: searchQ } = stubList();
+    const { q: searchQ, count: searchCount } = stubList();
     await listCars({ sort: "model-asc", search: "swift" });
     assert.equal(searchQ.calls.collation, undefined);
+    assert.equal(searchCount.mock.calls[0].arguments[1], undefined);
   });
 
   it("falls back to newest first for an unknown sort key", async () => {
