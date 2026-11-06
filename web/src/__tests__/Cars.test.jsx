@@ -106,10 +106,29 @@ describe('Cars result count (#86)', () => {
     expect(foundLabel()).toHaveTextContent('0 cars found')
   })
 
+  test('a late response from a superseded request does not overwrite the newer result', async () => {
+    // The mock ignores the abort signal, like a transport that cannot cancel: the first response
+    // arrives only after the second request has already finished.
+    const first = deferred()
+    getCars.mockReturnValueOnce(first.promise)
+    renderCars()
+    await waitFor(() => expect(typeSelect()).toBeTruthy()) // the filter options have loaded
+
+    getCars.mockResolvedValueOnce(result(2))
+    fireEvent.change(typeSelect(), { target: { value: 'suv' } })
+    expect(await findFoundLabel()).toHaveTextContent('2 cars found')
+
+    first.resolve(result(9))
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(foundLabel()).toHaveTextContent('2 cars found')
+    expect(screen.getAllByText(/^BMW M\d+$/)).toHaveLength(2)
+  })
+
   test('a failed request does not leave the previous cars and total on screen', async () => {
     getCars.mockResolvedValueOnce(result(3))
     renderCars()
     expect(await findFoundLabel()).toHaveTextContent('3 cars found')
+    expect(screen.getByText('BMW M1')).toBeInTheDocument() // the card the failure must not leave behind
     openDrawer()
 
     getCars.mockRejectedValueOnce(new Error('Network Error'))
@@ -117,7 +136,7 @@ describe('Cars result count (#86)', () => {
 
     expect(await screen.findAllByText(/could not load cars/i)).not.toHaveLength(0)
     expect(screen.queryByText(/^\d+\s+cars\s+found/)).not.toBeInTheDocument()
-    expect(screen.queryByText('M1')).not.toBeInTheDocument()
+    expect(screen.queryByText('BMW M1')).not.toBeInTheDocument()
     expect(drawerButton()).toHaveTextContent('Show cars')
     expect(screen.queryByText(/show 3 cars/i)).not.toBeInTheDocument()
   })

@@ -351,6 +351,8 @@ export default function Cars() {
     })
     getCars(params, { signal: controller.signal })
       .then(({ data }) => {
+        // A response that arrives after a newer request has started belongs to old filters.
+        if (controller.signal.aborted) return
         setCars(data.data.cars)
         setPagination(data.data.pagination)
       })
@@ -549,7 +551,7 @@ export default function Cars() {
                 <Spinner size="lg" />
               </div>
             ) : loadFailed ? (
-              <div className="text-center py-24 bg-white rounded-2xl border border-gray-200">
+              <div role="alert" className="text-center py-24 bg-white rounded-2xl border border-gray-200">
                 <div className="text-5xl mb-4">⚠️</div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Could not load cars</h3>
                 <p className="text-gray-500 text-sm mb-4">Check your connection and try again.</p>
