@@ -95,15 +95,29 @@ export function deriveTracking(booking, now = new Date()) {
   return { trackingStatus, timeInfo };
 }
 
+/** The only branch fields a booking needs to look at. */
+const BRANCH_FIELDS = "name isActive isPickupAvailable isDropAvailable";
+
+/** @param {string | undefined} id - resolves to null when the request names no branch */
+const findBranch = (id) => (id ? Location.findById(id).select(BRANCH_FIELDS) : null);
+
 /**
- * A chosen drop-off branch must exist, be active and accept returns. The UI already greys out
- * pickup-only branches, but the API is what actually decides, so it checks too.
- * @param {string} dropLocationId
+ * A chosen pickup branch must exist, be active and hand cars out. The UI already hides branches
+ * that do not, but the API is what actually decides, so it checks too.
+ * @param {any} branch
  */
-async function assertDropLocationAllowed(dropLocationId) {
-  const location = await Location.findById(dropLocationId);
-  if (!location || !location.isActive) throw new AppError("Drop-off location not found", 400);
-  if (location.isDropAvailable === false) throw new AppError(`Cars cannot be returned to ${location.name}`, 400);
+function assertPickupAllowed(branch) {
+  if (!branch || !branch.isActive) throw new AppError("Pickup location not found", 400);
+  if (branch.isPickupAvailable === false) throw new AppError(`Cars cannot be picked up from ${branch.name}`, 400);
+}
+
+/**
+ * A chosen drop-off branch must exist, be active and accept returns (some branches are pickup-only).
+ * @param {any} branch
+ */
+function assertDropAllowed(branch) {
+  if (!branch || !branch.isActive) throw new AppError("Drop-off location not found", 400);
+  if (branch.isDropAvailable === false) throw new AppError(`Cars cannot be returned to ${branch.name}`, 400);
 }
 
 /** Gives back a coupon use claimed for a booking that did not get created. */
@@ -127,11 +141,17 @@ export async function createBooking({ user, input }, { sendEmail = sendBookingCo
   const conflict = await Booking.findOne(bookingConflictQuery({ carId, pickup, drop }));
   if (conflict) throw new AppError("Car is not available for the selected dates", 409);
 
-  const car = await Car.findById(carId);
+  // Independent lookups, so they run together; the checks below keep a fixed order.
+  const [car, pickupBranch, dropBranch] = await Promise.all([
+    Car.findById(carId),
+    findBranch(pickupLocationId),
+    findBranch(dropLocationId),
+  ]);
   if (!car || !car.isActive || !car.isAvailable) throw new AppError("Car not available", 404);
 
-  // Before the coupon is claimed, so a rejected drop-off has nothing to roll back.
-  if (dropLocationId) await assertDropLocationAllowed(dropLocationId);
+  // Before the coupon is claimed, so a rejected branch has nothing to roll back.
+  if (pickupLocationId) assertPickupAllowed(pickupBranch);
+  if (dropLocationId) assertDropAllowed(dropBranch);
 
   // Fix #7: price by rental type. Request-shape validation stays here (not in
   // computeBookingQuote) — it's about what the client sent, not the pricing math.
