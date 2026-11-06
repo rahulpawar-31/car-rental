@@ -1,6 +1,8 @@
 import LegalPage from '../components/LegalPage'
 
 // DRAFT, written from how the app actually works (booking, cancellation refunds, drop-off rules).
+// The rule that a pickup at a pickup-only branch needs a different drop-off is stated here but not
+// enforced by the API yet (a deliberate open question, see #95); confirm it is what you want.
 // It has not been reviewed by a lawyer. Before launch the owner must confirm every statement and
 // add what only they know: the legal entity name, governing law and where disputes are heard,
 // fuel / mileage / damage / fines rules, insurance terms, and the late-return charge.
@@ -26,7 +28,8 @@ const SECTIONS = [
   {
     heading: 'Pickup and drop-off',
     body: [
-      'You collect the car from the pickup branch you chose. Unless you choose a different drop-off branch, you return it to the pickup branch. Some branches are pickup-only and cannot accept returns; these are marked when you choose a drop-off branch, and a booking that returns a car to one of them will be rejected.',
+      'You collect the car from the pickup location in your booking: one of our branches, or the address you entered in the booking form. Unless you choose a different drop-off, you return it to the pickup location.',
+      'Some branches are pickup-only and cannot accept returns. They are marked when you choose a drop-off branch, and a booking that names one of them as the drop-off will be rejected. If you pick up at a pickup-only branch, choose a different drop-off branch when you book.',
     ],
   },
   {

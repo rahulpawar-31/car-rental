@@ -19,9 +19,15 @@ describe('Privacy Policy page', () => {
     renderAt('/privacy')
     expect(screen.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeInTheDocument()
     expect(screen.getByText(/last updated/i)).toBeInTheDocument()
-    for (const heading of ['What we collect', 'How we use it', 'Cookies', 'Who we share it with', 'Your choices']) {
+    for (const heading of ['What we collect', 'How we use it', 'Cookies and browser storage', 'Who we share it with', 'Your choices']) {
       expect(screen.getByRole('heading', { level: 2, name: heading })).toBeInTheDocument()
     }
+  })
+
+  test('discloses the contact form and what the browser keeps', () => {
+    renderAt('/privacy')
+    expect(screen.getByText(/messages you send through the contact form/i)).toBeInTheDocument()
+    expect(screen.getByText(/keeps a copy of your account details in its local storage/i)).toBeInTheDocument()
   })
 
   test('names the services that handle customer data and says how to reach us', () => {
@@ -49,6 +55,13 @@ describe('Terms of Service page', () => {
     expect(screen.getByText(/48 hours or more before pickup: full refund/i)).toBeInTheDocument()
     expect(screen.getByText(/between 24 and 48 hours before pickup: 50%/i)).toBeInTheDocument()
     expect(screen.getByText(/less than 24 hours before pickup: no refund/i)).toBeInTheDocument()
+  })
+
+  test('does not promise a car is collected only from a branch, and tells pickup-only pickups what to do', () => {
+    renderAt('/terms')
+    expect(screen.getByText(/or the address you entered in the booking form/i)).toBeInTheDocument()
+    expect(screen.queryByText(/branch you chose/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/if you pick up at a pickup-only branch, choose a different drop-off branch/i)).toBeInTheDocument()
   })
 
   test('links on to the other legal page', () => {

@@ -14,6 +14,7 @@ const SECTIONS = [
         'Profile details you choose to add: a profile photo and your address.',
         'Driving licence details you provide: licence number, expiry date and an image of the licence.',
         'Booking details: the car, dates, pickup and drop-off branches, and the name, phone number and licence number of the driver and any additional drivers you list.',
+        'Messages you send through the Contact form: your name, email address, subject and message, which are sent to our team by email.',
         'Payment records: the amount, payment method type and the payment reference numbers issued by our payment provider. We do not receive or store your full card number, UPI PIN or net-banking credentials; those are entered with the payment provider.',
       ],
     ],
@@ -31,9 +32,10 @@ const SECTIONS = [
     ],
   },
   {
-    heading: 'Cookies',
+    heading: 'Cookies and browser storage',
     body: [
       'We use two cookies to keep you signed in: a short-lived access cookie (up to 7 days) and a refresh cookie (up to 30 days). They are set so that scripts on the page cannot read them, and they are only sent to DriveEase. You can clear them in your browser at any time, which signs you out.',
+      'Your browser also keeps a copy of your account details in its local storage so the site can show you as signed in. This can include your name, email address, phone number, address and driving licence details. Signing out clears it, and you can clear it yourself in your browser settings.',
     ],
   },
   {
