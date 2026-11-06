@@ -18,8 +18,8 @@ import {
 import { FaFacebookF, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa'
 import { getCars, getCarFilters } from '../api/cars'
 import { getLocationById } from '../api/locations'
-import Spinner from '../components/ui/Spinner'
 import CarPhoto from '../components/ui/CarPhoto'
+import Spinner from '../components/ui/Spinner'
 
 const TRANSMISSIONS = ['automatic', 'manual']
 const SORT_OPTIONS = [

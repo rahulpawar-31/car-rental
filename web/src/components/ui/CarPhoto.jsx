@@ -29,8 +29,12 @@ const fileName = src => String(src ?? '').split(/[?#]/)[0].split('/').pop()
  * A car photo that fills its box without cropping portrait images down to the bumper.
  * Pass the sizing classes (w-full h-full ...) via className; object-cover is added here.
  */
-export default function CarPhoto({ className = '', style, onLoad, alt = '', ...props }) {
-  const [position, setPosition] = useState(WIDE_POSITION)
+export default function CarPhoto({ src, className = '', style, onLoad, alt = '', ...props }) {
+  // The measured position belongs to the src it was measured for. When the src changes (the car
+  // page swaps its hero photo), fall back to the default until the new photo has loaded instead of
+  // briefly cropping it with the previous photo's anchor.
+  const [measured, setMeasured] = useState({ src: null, position: WIDE_POSITION })
+  const position = measured.src === src ? measured.position : WIDE_POSITION
 
   if (WRONG_MODEL_PHOTOS.has(fileName(props.src))) {
     // @container lets the label hide itself in small thumbnails, where it would not fit.
@@ -49,7 +53,8 @@ export default function CarPhoto({ className = '', style, onLoad, alt = '', ...p
   const handleLoad = e => {
     const { naturalWidth, naturalHeight } = e.currentTarget
     if (naturalWidth && naturalHeight) {
-      setPosition(naturalHeight / naturalWidth > PORTRAIT_RATIO ? PORTRAIT_POSITION : WIDE_POSITION)
+      const portrait = naturalHeight / naturalWidth > PORTRAIT_RATIO
+      setMeasured({ src, position: portrait ? PORTRAIT_POSITION : WIDE_POSITION })
     }
     onLoad?.(e)
   }
@@ -57,6 +62,7 @@ export default function CarPhoto({ className = '', style, onLoad, alt = '', ...p
   return (
     <img
       {...props}
+      src={src}
       alt={alt}
       className={`object-cover ${className}`}
       style={{ objectPosition: position, ...style }}
