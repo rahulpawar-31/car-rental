@@ -279,12 +279,29 @@ export async function updateCar(id, body) {
 }
 
 /**
- * Appends uploaded images to a car and returns its full image list.
+ * Adds uploaded images to a car and returns its full image list.
+ * By default they are appended as non-primary. With makePrimary the first upload becomes the
+ * cover: the new images go to the front of the list (the admin list shows images[0]) and every
+ * older image is demoted, so exactly one image stays primary.
  * @param {string} id
  * @param {Express.Multer.File[] | undefined} files
+ * @param {boolean} [makePrimary]
  */
-export async function addCarImages(id, files) {
+export async function addCarImages(id, files, makePrimary = false) {
   if (!files?.length) throw new AppError("No images uploaded", 400);
+
+  if (makePrimary) {
+    // One atomic pipeline update on the raw document: cars inserted outside the model (#84) would
+    // fail a full validate-and-save. Pipeline updates are not cast, so each image gets its _id here.
+    const added = toCarImages(files, true).map((image) => ({ _id: new mongoose.Types.ObjectId(), ...image }));
+    const demoted = {
+      $map: { input: { $ifNull: ["$images", []] }, as: "image", in: { $mergeObjects: ["$$image", { isPrimary: false }] } },
+    };
+    const updated = await Car.findByIdAndUpdate(id, [{ $set: { images: { $concatArrays: [added, demoted] } } }], { new: true });
+
+    if (!updated) throw new AppError("Car not found", 404);
+    return updated.images;
+  }
 
   const newImages = toCarImages(files, false);
 

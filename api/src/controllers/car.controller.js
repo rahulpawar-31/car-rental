@@ -64,7 +64,7 @@ export const updateCar = async (req, res) => {
 /** @type {import('express').RequestHandler} */
 export const addCarImages = async (req, res) => {
   const files = /** @type {Express.Multer.File[] | undefined} */ (req.files);
-  const images = await carService.addCarImages(req.params.id, files);
+  const images = await carService.addCarImages(req.params.id, files, req.body?.makePrimary === true);
 
   res.json({ success: true, message: "Images added", data: { images } });
 };

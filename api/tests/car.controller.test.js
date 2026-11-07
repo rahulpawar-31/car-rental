@@ -91,6 +91,18 @@ describe("car controller responses", () => {
     assert.deepEqual(body, { success: true, message: "Images added", data: { images: [{ url: "u" }] } });
   });
 
+  it("addCarImages only makes the upload the cover when makePrimary is true", async () => {
+    const update = mock.method(Car, "findByIdAndUpdate", async () => ({ images: [] }));
+
+    await run(controller.addCarImages, { params: { id: "c1" }, files, body: { makePrimary: true } });
+    await run(controller.addCarImages, { params: { id: "c1" }, files, body: {} });
+    await run(controller.addCarImages, { params: { id: "c1" }, files });
+
+    assert.equal(Array.isArray(update.mock.calls[0].arguments[1]), true, "makePrimary uses the pipeline update");
+    assert.equal(Array.isArray(update.mock.calls[1].arguments[1]), false);
+    assert.equal(Array.isArray(update.mock.calls[2].arguments[1]), false);
+  });
+
   it("deleteCarImage confirms with a message only", async () => {
     const car = { images: { id: () => ({ publicId: "" }), pull() {} }, save: async () => {} };
     mock.method(Car, "findById", async () => car);

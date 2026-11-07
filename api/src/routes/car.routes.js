@@ -25,6 +25,7 @@ import {
   carDocumentParams,
   createCarBody,
   updateCarBody,
+  addCarImagesBody,
   uploadDocumentBody,
 } from "../validation/car.validation.js";
 
@@ -42,7 +43,7 @@ router.get("/:id/booked-dates", validate({ params: idParams }), getCarBookedDate
 router.use(protect, authorize("admin"));
 router.post("/", uploadCarImages, validate({ body: createCarBody }), createCar);
 router.patch("/:id", validate({ params: idParams, body: updateCarBody }), updateCar);
-router.post("/:id/images", validate({ params: idParams }), uploadCarImages, addCarImages);
+router.post("/:id/images", validate({ params: idParams }), uploadCarImages, validate({ body: addCarImagesBody }), addCarImages);
 router.delete("/:id/images/:imageId", validate({ params: carImageParams }), deleteCarImage);
 router.post(
   "/:id/documents/:docType",

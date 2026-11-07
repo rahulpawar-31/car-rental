@@ -427,6 +427,27 @@ describe("images", () => {
     assert.deepEqual(push.map((i) => i.isPrimary), [false, false]);
   });
 
+  it("addCarImages with makePrimary puts the first upload first and demotes the older images", async () => {
+    const update = mock.method(Car, "findByIdAndUpdate", async () => ({ images: [{ url: "all" }] }));
+
+    const images = await addCarImages("c1", files, true);
+
+    assert.deepEqual(images, [{ url: "all" }]);
+    const [id, pipeline, options] = update.mock.calls[0].arguments;
+    assert.equal(id, "c1");
+    assert.equal(options.new, true);
+    const [{ $set }] = pipeline;
+    const [added, demoted] = $set.images.$concatArrays;
+    assert.deepEqual(added.map((i) => i.isPrimary), [true, false], "only the first upload is primary");
+    assert.ok(added.every((i) => i._id), "each new image gets an _id, because pipeline updates are not cast");
+    assert.deepEqual(demoted.$map.in.$mergeObjects[1], { isPrimary: false });
+  });
+
+  it("addCarImages with makePrimary 404s for an unknown car", async () => {
+    mock.method(Car, "findByIdAndUpdate", async () => null);
+    await rejectsWith(addCarImages("c1", files, true), 404, "Car not found");
+  });
+
   it("addCarImages needs at least one file, and a real car", async () => {
     await rejectsWith(addCarImages("c1", undefined), 400, "No images uploaded");
     await rejectsWith(addCarImages("c1", []), 400, "No images uploaded");

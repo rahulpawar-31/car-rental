@@ -122,6 +122,14 @@ describe("admin car body schemas", () => {
     assert.deepEqual(issues(car.updateCarBody, { location: "nope" }), ["location: location is not a valid id"]);
   });
 
+  it("accepts makePrimary as text or a boolean and treats a missing or blank value as not provided", () => {
+    assert.deepEqual(parse(car.addCarImagesBody, { makePrimary: "true" }), { makePrimary: true });
+    assert.deepEqual(parse(car.addCarImagesBody, { makePrimary: false }), { makePrimary: false });
+    assert.deepEqual(parse(car.addCarImagesBody, {}), {});
+    assert.deepEqual(parse(car.addCarImagesBody, { makePrimary: "" }), {});
+    assert.deepEqual(issues(car.addCarImagesBody, { makePrimary: "maybe" }), ["makePrimary: makePrimary must be true or false"]);
+  });
+
   it("restricts document types", () => {
     assert.deepEqual(issues(car.carDocumentParams, { id: ID, docType: "license" }), [
       "docType: Invalid docType. Use: insurance, registration, pollution",

@@ -118,6 +118,9 @@ const updateShape = Object.fromEntries(
 );
 export const updateCarBody = z.object(updateShape).transform(withoutUndefined);
 
+// POST /cars/:id/images is a multipart form, so makePrimary arrives as the text "true"/"false".
+export const addCarImagesBody = z.object({ makePrimary: optionalField(booleanInput("makePrimary")) }).transform(withoutUndefined);
+
 export const verifyDocumentParams = carDocumentParams;
 export const uploadDocumentBody = z.object({
   expiryDate: optionalField(z.string({ error: "expiryDate must be a date" }).trim().max(50, "expiryDate is too long")),
