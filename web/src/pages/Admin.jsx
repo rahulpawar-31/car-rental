@@ -1475,6 +1475,8 @@ function CarsTab() {
       if (imageFile && carId) {
         const fd = new FormData()
         fd.append('images', imageFile)
+        // The photo picked in this form is the car's cover, also when the car already has one.
+        fd.append('makePrimary', 'true')
         await uploadAdminCarImages(carId, fd)
       }
 
