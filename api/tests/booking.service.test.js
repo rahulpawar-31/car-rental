@@ -479,26 +479,35 @@ describe("rescheduleUserBooking", () => {
     save: mock.fn(async () => {}),
     ...overrides,
   });
+  // The booking read, the availability check (nobody else holds the dates), and the conditional write.
+  const setup = (booking, { conflict = null, wrote = {} } = {}) => {
+    sequence(Booking, "findOne", booking, conflict);
+    sequence(Car, "findById", car);
+    sequence(Booking, "findById", chain({ _id: "b1" }));
+    const write = mock.method(Booking, "findOneAndUpdate", async () => wrote);
+    const voidPayments = mock.method(Payment, "updateMany", async () => ({}));
+    return { write, voidPayments };
+  };
 
   it("only reschedules pending or confirmed bookings", async () => {
     sequence(Booking, "findOne", existing({ status: "completed" }));
     await rejectsWith(rescheduleUserBooking("user1", "b1", dates()), 400, "Only pending or confirmed bookings can be rescheduled");
   });
 
-  it("reprices the booking and voids a stale pending payment", async () => {
+  it("reprices the booking in one conditional write and voids (not deletes) a stale pending payment", async () => {
     const booking = existing();
-    sequence(Booking, "findOne", booking, null, null); // booking, conflict check, post-save recheck
-    sequence(Car, "findById", car);
-    const deleteOne = mock.method(Payment, "deleteOne", async () => ({}));
-    sequence(Booking, "findById", chain({ _id: "b1" }));
+    const { write, voidPayments } = setup(booking);
 
     await rescheduleUserBooking("user1", "b1", dates());
 
-    assert.equal(booking.totalDays, 2);
-    assert.equal(booking.baseAmount, 4000);
-    assert.equal(booking.paymentStatus, "pending");
-    assert.equal(booking.save.mock.callCount(), 1);
-    assert.deepEqual(deleteOne.mock.calls[0].arguments[0], { booking: "b1", status: "pending" });
+    const [filter, update] = write.mock.calls[0].arguments;
+    assert.deepEqual(filter, { _id: "b1", status: "confirmed", paymentStatus: "pending", totalAmount: 7360 }, "only if the booking is still as it was read");
+    assert.equal(update.$set.totalDays, 2);
+    assert.equal(update.$set.baseAmount, 4000);
+    assert.equal(update.$set.totalAmount, 9720);
+    assert.equal(update.$set.paymentStatus, "pending");
+    assert.equal(booking.save.mock.callCount(), 0);
+    assert.deepEqual(voidPayments.mock.calls[0].arguments, [{ booking: "b1", status: "pending" }, { status: "cancelled" }]);
   });
 
   describe("a paid booking", () => {
@@ -507,131 +516,125 @@ describe("rescheduleUserBooking", () => {
       existing({ paymentStatus: "paid", totalDays: 2, baseAmount: 4000, taxAmount: 720, totalAmount: 9720, ...overrides });
 
     it("can move to dates that cost the same, leaving its payment untouched", async () => {
-      const booking = paid();
-      sequence(Booking, "findOne", booking, null, null);
-      sequence(Car, "findById", car);
-      const deleteOne = mock.method(Payment, "deleteOne", async () => ({}));
-      sequence(Booking, "findById", chain({ _id: "b1" }));
+      const { write, voidPayments } = setup(paid());
 
       await rescheduleUserBooking("user1", "b1", dates()); // 48h, like the original
 
-      assert.equal(booking.paymentStatus, "paid");
-      assert.equal(booking.totalAmount, 9720);
-      assert.equal(booking.save.mock.callCount(), 1);
-      assert.equal(deleteOne.mock.callCount(), 0);
+      const [filter, update] = write.mock.calls[0].arguments;
+      assert.deepEqual(filter, { _id: "b1", status: "confirmed", paymentStatus: "paid", totalAmount: 9720 });
+      assert.equal("paymentStatus" in update.$set, false, "stays paid");
+      assert.equal(update.$set.totalAmount, 9720);
+      assert.equal(voidPayments.mock.callCount(), 0);
     });
 
     it("cannot be extended: one day paid for stays one day, with nothing written", async () => {
-      const booking = existing({ paymentStatus: "paid" }); // 1 day, 7360 paid
-      sequence(Booking, "findOne", booking, null);
-      sequence(Car, "findById", car);
+      const { write } = setup(existing({ paymentStatus: "paid" })); // 1 day, 7360 paid
 
       await assert.rejects(rescheduleUserBooking("user1", "b1", dates()), { statusCode: 400, message: /already paid \(₹7360\).*₹9720/ });
 
-      assert.equal(booking.save.mock.callCount(), 0);
-      assert.equal(booking.paymentStatus, "paid");
-      assert.equal(booking.totalAmount, 7360);
-      assert.equal(booking.totalDays, 1);
+      assert.equal(write.mock.callCount(), 0);
     });
 
     it("cannot be extended from one day to ten", async () => {
-      const booking = existing({ paymentStatus: "paid" });
-      sequence(Booking, "findOne", booking, null);
-      sequence(Car, "findById", car);
+      const { write } = setup(existing({ paymentStatus: "paid" }));
 
       await assert.rejects(
         rescheduleUserBooking("user1", "b1", { pickupDate: inHours(100).toISOString(), dropDate: inHours(100 + 240).toISOString() }),
         { statusCode: 400, message: /already paid/ }
       );
 
-      assert.equal(booking.save.mock.callCount(), 0);
+      assert.equal(write.mock.callCount(), 0);
     });
 
     it("cannot be shortened either, since the difference could not be refunded", async () => {
-      const booking = paid();
-      sequence(Booking, "findOne", booking, null);
-      sequence(Car, "findById", car);
+      const { write } = setup(paid());
 
       await assert.rejects(
         rescheduleUserBooking("user1", "b1", { pickupDate: inHours(100).toISOString(), dropDate: inHours(124).toISOString() }),
         { statusCode: 400, message: /already paid \(₹9720\).*₹7360/ }
       );
 
-      assert.equal(booking.save.mock.callCount(), 0);
+      assert.equal(write.mock.callCount(), 0);
     });
   });
 
-  it("still reprices an unpaid booking whose price changes", async () => {
-    const booking = existing({ paymentStatus: "pending" });
-    sequence(Booking, "findOne", booking, null, null);
-    sequence(Car, "findById", car);
-    mock.method(Payment, "deleteOne", async () => ({}));
-    sequence(Booking, "findById", chain({ _id: "b1" }));
+  describe("when the booking changes between the read and the write", () => {
+    it("refuses, instead of repricing a booking whose payment just completed", async () => {
+      // The checkout for the old amount was confirmed after the booking was read as pending: the
+      // conditional write no longer matches, so nothing is repriced and the payment stays valid.
+      const { write, voidPayments } = setup(existing(), { wrote: null });
 
-    await rescheduleUserBooking("user1", "b1", dates());
+      await assert.rejects(rescheduleUserBooking("user1", "b1", dates()), { statusCode: 409, message: /just updated/ });
 
-    assert.equal(booking.totalAmount, 9720);
+      assert.equal(write.mock.callCount(), 1);
+      assert.equal(voidPayments.mock.callCount(), 0, "the pending payment is not voided for a move that did not happen");
+    });
+
+    it("also refuses when it was cancelled in the meantime", async () => {
+      setup(existing(), { wrote: null });
+
+      await assert.rejects(rescheduleUserBooking("user1", "b1", dates()), { statusCode: 409 });
+    });
   });
 
   describe("rental span", () => {
     it("lets an hourly booking move to a window of the same length", async () => {
       const booking = existing({ rentalType: "hour", totalHours: 48 });
-      sequence(Booking, "findOne", booking, null, null);
+      sequence(Booking, "findOne", booking, null);
       sequence(Car, "findById", { ...car, pricePerHour: 100 });
-      mock.method(Payment, "deleteOne", async () => ({}));
       sequence(Booking, "findById", chain({ _id: "b1" }));
+      const write = mock.method(Booking, "findOneAndUpdate", async () => ({}));
+      mock.method(Payment, "updateMany", async () => ({}));
 
       await rescheduleUserBooking("user1", "b1", dates()); // 48h window, 48 totalHours
 
-      assert.equal(booking.save.mock.callCount(), 1);
+      assert.equal(write.mock.callCount(), 1);
     });
 
     it("rejects stretching an hourly booking, which would keep its old hourly price", async () => {
-      const booking = existing({ rentalType: "hour", totalHours: 3 });
-      sequence(Booking, "findOne", booking);
+      sequence(Booking, "findOne", existing({ rentalType: "hour", totalHours: 3 }));
+      const write = mock.method(Booking, "findOneAndUpdate", async () => ({}));
 
       await rejectsWith(
         rescheduleUserBooking("user1", "b1", dates()), // 48h window
         400,
         "An hourly booking can only be moved to a window of the same length (3 hours)"
       );
-      assert.equal(booking.save.mock.callCount(), 0);
+      assert.equal(write.mock.callCount(), 0);
     });
 
     it("rejects moving an airport transfer to a window past 24 hours", async () => {
-      const booking = existing({ rentalType: "airport" });
-      sequence(Booking, "findOne", booking);
+      sequence(Booking, "findOne", existing({ rentalType: "airport" }));
+      const write = mock.method(Booking, "findOneAndUpdate", async () => ({}));
 
       await rejectsWith(
         rescheduleUserBooking("user1", "b1", { pickupDate: inHours(100).toISOString(), dropDate: inHours(220).toISOString() }),
         400,
         "Airport transfer bookings can span at most 24 hours — use a daily rental for longer trips"
       );
-      assert.equal(booking.save.mock.callCount(), 0);
+      assert.equal(write.mock.callCount(), 0);
     });
   });
 
   describe("when another booking holds the new dates", () => {
     it("rejects with 409 and writes nothing, so there is nothing to restore", async () => {
-      const booking = existing();
-      sequence(Booking, "findOne", booking, { _id: "other" });
-      sequence(Car, "findById", car);
-      const deleteOne = mock.method(Payment, "deleteOne", async () => ({}));
+      const { write, voidPayments } = setup(existing(), { conflict: { _id: "other" } });
       const updateOne = mock.method(Booking, "updateOne", async () => ({}));
 
       await rejectsWith(rescheduleUserBooking("user1", "b1", dates()), 409, "Car is not available for the selected dates");
 
-      assert.equal(booking.save.mock.callCount(), 0);
+      assert.equal(write.mock.callCount(), 0);
       assert.equal(updateOne.mock.callCount(), 0);
-      assert.equal(deleteOne.mock.callCount(), 0);
-      assert.equal(booking.totalDays, 1);
+      assert.equal(voidPayments.mock.callCount(), 0);
     });
 
     it("keeps the booking's own dates out of the check, so moving within its own window is allowed", async () => {
-      const find = sequence(Booking, "findOne", existing(), null);
+      const booking = existing();
+      const find = sequence(Booking, "findOne", booking, null);
       sequence(Car, "findById", car);
-      mock.method(Payment, "deleteOne", async () => ({}));
       sequence(Booking, "findById", chain({ _id: "b1" }));
+      mock.method(Booking, "findOneAndUpdate", async () => ({}));
+      mock.method(Payment, "updateMany", async () => ({}));
 
       await rescheduleUserBooking("user1", "b1", dates());
 
@@ -639,7 +642,7 @@ describe("rescheduleUserBooking", () => {
     });
   });
 
-  it("surfaces a failure of the availability check without saving", async () => {
+  it("surfaces a failure of the availability check without writing", async () => {
     const booking = existing();
     let call = 0;
     mock.method(Booking, "findOne", () => {
@@ -647,10 +650,30 @@ describe("rescheduleUserBooking", () => {
       throw new Error("db down");
     });
     sequence(Car, "findById", car);
+    const write = mock.method(Booking, "findOneAndUpdate", async () => ({}));
 
     await assert.rejects(rescheduleUserBooking("user1", "b1", dates()), /db down/);
 
-    assert.equal(booking.save.mock.callCount(), 0);
+    assert.equal(write.mock.callCount(), 0);
+  });
+
+  describe("when the reservation lock was lost before the write completed", () => {
+    it("restores only its own change and fails with a retryable 409", async () => {
+      const { write } = setup(existing());
+      ReservationLock.exists.mock.restore();
+      mock.method(ReservationLock, "exists", async () => null); // lease gone by the time the write returns
+      const restore = mock.method(Booking, "updateOne", async () => ({}));
+
+      await assert.rejects(rescheduleUserBooking("user1", "b1", dates()), { statusCode: 409, message: /took too long/ });
+
+      assert.equal(write.mock.callCount(), 1);
+      const [filter, update] = restore.mock.calls[0].arguments;
+      assert.equal(filter._id, "b1");
+      assert.equal(filter.totalAmount, 9720, "matches only the document it wrote");
+      assert.equal("paymentStatus" in update.$set, false, "payment state is never rolled back");
+      assert.equal(update.$set.totalAmount, 7360);
+      assert.equal(update.$set.totalDays, 1);
+    });
   });
 });
 

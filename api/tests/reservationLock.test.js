@@ -77,26 +77,12 @@ function hasOverlap(list) {
   return list.some((a, i) => list.some((b, j) => i < j && a.car === b.car && a.pickupDate <= b.dropDate && b.pickupDate <= a.dropDate));
 }
 
-// A stored booking as the service sees it: a document whose save() writes back after a delay.
-function asDocument(stored) {
-  return Object.assign(
-    Object.create({
-      async save() {
-        await stall.save?.();
-        await wait(insertDelay(0));
-        Object.assign(stored, this);
-      },
-    }),
-    stored
-  );
-}
-
 function installBookingStore() {
   mock.method(Booking, "findOne", async (filter) => {
     await wait(1);
     if (filter.user) {
       const stored = bookings.find((b) => b._id === filter._id && b.user === filter.user);
-      return stored ? asDocument(stored) : null;
+      return stored ? { ...stored } : null;
     }
     return bookings.find((b) => overlaps(b, filter)) ?? null;
   });
@@ -108,13 +94,24 @@ function installBookingStore() {
     bookings.push({ ...doc, _id, bookingNumber: `BK${n}`, car: String(doc.car) });
     return { _id, bookingNumber: `BK${n}` };
   });
+  // The reschedule's conditional write: applies only if the stored booking still matches every field.
+  mock.method(Booking, "findOneAndUpdate", async (filter, update) => {
+    await wait(1);
+    await stall.write?.();
+    const stored = bookings.find((b) => b._id === filter._id);
+    if (!stored || Object.entries(filter).some(([key, value]) => stored[key] !== value)) return null;
+    await wait(insertDelay(0));
+    Object.assign(stored, update.$set);
+    return { ...stored };
+  });
   mock.method(Booking, "deleteOne", async (filter) => {
     await wait(1);
     bookings = bookings.filter((b) => b._id !== filter._id);
   });
   mock.method(Booking, "updateOne", async (filter, update) => {
     await wait(1);
-    Object.assign(bookings.find((b) => b._id === filter._id), update.$set);
+    const stored = bookings.find((b) => b._id === filter._id);
+    if (stored && Object.entries(filter).every(([key, value]) => String(stored[key]) === String(value))) Object.assign(stored, update.$set);
   });
   mock.method(Booking, "findById", (id) => {
     const q = { populate: () => q, then: (ok, fail) => Promise.resolve({ _id: id }).then(ok, fail) };
@@ -137,7 +134,7 @@ beforeEach(() => {
   installLockStore();
   installBookingStore();
   mock.method(Car, "findById", async (id) => ({ ...car, _id: id }));
-  mock.method(Payment, "deleteOne", async () => ({}));
+  mock.method(Payment, "updateMany", async () => ({}));
 });
 afterEach(() => mock.restoreAll());
 
@@ -436,7 +433,7 @@ describe("a claim that stalls past its lease", () => {
     bookings.push({ ...original });
     const releaseSave = gate();
     let saving = false;
-    stall.save = async () => {
+    stall.write = async () => {
       saving = true;
       await releaseSave.closed; // the reschedule's write is held back
     };
@@ -446,7 +443,7 @@ describe("a claim that stalls past its lease", () => {
     await untilStalled(() => saving);
 
     dbNow += LEASE + 1_000;
-    stall.save = undefined;
+    stall.write = undefined;
     await createBooking({ user: user(2), input: request(510, 558) }, noEmail()); // takes the new dates
 
     releaseSave.open(); // the reschedule's write lands, on top of them
