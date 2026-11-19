@@ -321,7 +321,8 @@ export async function cancelUserBooking(userId, bookingId, reason) {
 
 /**
  * Moves the user's booking to new dates, repricing it. Rolls the booking back if a concurrent
- * booking lands on the new dates between the check and the save.
+ * booking lands on the new dates between the check and the save. A paid booking can only move to
+ * dates that cost the same, since the price it was paid at cannot be adjusted afterwards.
  */
 export async function rescheduleUserBooking(userId, bookingId, { pickupDate, dropDate }) {
   const { pickup, drop } = parseRentalWindow(pickupDate, dropDate);
@@ -364,6 +365,18 @@ export async function rescheduleUserBooking(userId, bookingId, { pickupDate, dro
     totalHours: booking.totalHours,
     coupon: booking.discountAmount ? { type: "fixed", value: booking.discountAmount } : null,
   });
+
+  // A paid booking's price is fixed by what was collected. There is no supplemental-charge or
+  // partial-refund flow, so moving it to dates that change the price would either leave a larger
+  // balance marked as paid or silently keep money the customer is owed back. Allow only moves
+  // that cost the same (e.g. the same number of days); anything else is cancelled and rebooked.
+  if (booking.paymentStatus === "paid" && totalAmount !== booking.totalAmount) {
+    throw new AppError(
+      `This booking is already paid (₹${booking.totalAmount}) and the new dates would change the price to ₹${totalAmount}. ` +
+        "Choose dates that cost the same, or cancel this booking and make a new one.",
+      400
+    );
+  }
 
   // Fix #10: snapshot originals in case the post-save conflict check below forces a rollback
   const original = {

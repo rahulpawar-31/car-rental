@@ -492,17 +492,76 @@ describe("rescheduleUserBooking", () => {
     assert.deepEqual(deleteOne.mock.calls[0].arguments[0], { booking: "b1", status: "pending" });
   });
 
-  it("leaves a paid booking's payment untouched", async () => {
-    const booking = existing({ paymentStatus: "paid" });
+  describe("a paid booking", () => {
+    // Two days at 2000/day + 18% tax + 5000 deposit, already collected.
+    const paid = (overrides = {}) =>
+      existing({ paymentStatus: "paid", totalDays: 2, baseAmount: 4000, taxAmount: 720, totalAmount: 9720, ...overrides });
+
+    it("can move to dates that cost the same, leaving its payment untouched", async () => {
+      const booking = paid();
+      sequence(Booking, "findOne", booking, null, null);
+      sequence(Car, "findById", car);
+      const deleteOne = mock.method(Payment, "deleteOne", async () => ({}));
+      sequence(Booking, "findById", chain({ _id: "b1" }));
+
+      await rescheduleUserBooking("user1", "b1", dates()); // 48h, like the original
+
+      assert.equal(booking.paymentStatus, "paid");
+      assert.equal(booking.totalAmount, 9720);
+      assert.equal(booking.save.mock.callCount(), 1);
+      assert.equal(deleteOne.mock.callCount(), 0);
+    });
+
+    it("cannot be extended: one day paid for stays one day, with nothing written", async () => {
+      const booking = existing({ paymentStatus: "paid" }); // 1 day, 7360 paid
+      sequence(Booking, "findOne", booking, null);
+      sequence(Car, "findById", car);
+
+      await assert.rejects(rescheduleUserBooking("user1", "b1", dates()), { statusCode: 400, message: /already paid \(₹7360\).*₹9720/ });
+
+      assert.equal(booking.save.mock.callCount(), 0);
+      assert.equal(booking.paymentStatus, "paid");
+      assert.equal(booking.totalAmount, 7360);
+      assert.equal(booking.totalDays, 1);
+    });
+
+    it("cannot be extended from one day to ten", async () => {
+      const booking = existing({ paymentStatus: "paid" });
+      sequence(Booking, "findOne", booking, null);
+      sequence(Car, "findById", car);
+
+      await assert.rejects(
+        rescheduleUserBooking("user1", "b1", { pickupDate: inHours(100).toISOString(), dropDate: inHours(100 + 240).toISOString() }),
+        { statusCode: 400, message: /already paid/ }
+      );
+
+      assert.equal(booking.save.mock.callCount(), 0);
+    });
+
+    it("cannot be shortened either, since the difference could not be refunded", async () => {
+      const booking = paid();
+      sequence(Booking, "findOne", booking, null);
+      sequence(Car, "findById", car);
+
+      await assert.rejects(
+        rescheduleUserBooking("user1", "b1", { pickupDate: inHours(100).toISOString(), dropDate: inHours(124).toISOString() }),
+        { statusCode: 400, message: /already paid \(₹9720\).*₹7360/ }
+      );
+
+      assert.equal(booking.save.mock.callCount(), 0);
+    });
+  });
+
+  it("still reprices an unpaid booking whose price changes", async () => {
+    const booking = existing({ paymentStatus: "pending" });
     sequence(Booking, "findOne", booking, null, null);
     sequence(Car, "findById", car);
-    const deleteOne = mock.method(Payment, "deleteOne", async () => ({}));
+    mock.method(Payment, "deleteOne", async () => ({}));
     sequence(Booking, "findById", chain({ _id: "b1" }));
 
     await rescheduleUserBooking("user1", "b1", dates());
 
-    assert.equal(booking.paymentStatus, "paid");
-    assert.equal(deleteOne.mock.callCount(), 0);
+    assert.equal(booking.totalAmount, 9720);
   });
 
   describe("rental span", () => {
