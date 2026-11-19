@@ -7,6 +7,7 @@ import {
   verifyPaymentSignature,
   verifyWebhookSignature,
 } from "../services/razorpay.js";
+import { settleCapture, SETTLEMENT } from "../services/paymentSettlement.js";
 
 export const createPaymentIntent = async (req, res) => {
   const { bookingId } = req.body;
@@ -67,49 +68,21 @@ export const confirmPayment = async (req, res) => {
   const existing = await Payment.findOne({ razorpayOrderId, user: req.user._id });
   if (!existing) throw new AppError("Payment record not found", 404);
 
-  // Fix #12: idempotent retry — a client retry or a race with the webhook can call this
-  // twice for the same order. Without this, the second call would find the booking no
-  // longer "pending" and wrongly flip an already-succeeded payment to "failed".
-  if (existing.status === "succeeded") {
-    return res.json({
-      success: true,
-      message: "Payment verified and confirmed",
-      data: { payment: existing },
-    });
-  }
+  // Retries and the capture webhook can all reach this for the same order. Settling re-checks the
+  // booking every time (a succeeded payment alone doesn't prove it was confirmed), so a retry
+  // repairs a half-finished earlier attempt instead of acknowledging it.
+  const { outcome, payment } = await settleCapture(existing, { razorpayPaymentId, razorpaySignature });
 
-  const payment = await Payment.findOneAndUpdate(
-    { _id: existing._id, status: { $ne: "succeeded" } },
-    { status: "succeeded", razorpayPaymentId, razorpaySignature },
-    { new: true }
+  if (outcome === SETTLEMENT.CONFIRMED) {
+    return res.json({ success: true, message: "Payment verified and confirmed", data: { payment } });
+  }
+  if (outcome === SETTLEMENT.REFUNDED) {
+    throw new AppError("This payment has already been refunded", 409);
+  }
+  throw new AppError(
+    "This booking is no longer payable — it may have been cancelled or already confirmed. Your payment was received and will be refunded.",
+    409
   );
-  if (!payment) {
-    // Lost the race to a concurrent confirm call that just succeeded — treat as success too.
-    const latest = await Payment.findById(existing._id);
-    return res.json({
-      success: true,
-      message: "Payment verified and confirmed",
-      data: { payment: latest },
-    });
-  }
-
-  // Fix #11: the booking may have been cancelled (or already confirmed by a prior race)
-  // since this Razorpay order was created — don't let a stale checkout session revive it.
-  const booking = await Booking.findOneAndUpdate(
-    { _id: payment.booking, status: "pending" },
-    { status: "confirmed", paymentStatus: "paid", razorpayOrderId },
-    { new: true }
-  );
-  if (!booking) {
-    payment.status = "failed";
-    await payment.save();
-    throw new AppError(
-      "This booking is no longer payable — it may have been cancelled or already confirmed",
-      409
-    );
-  }
-
-  res.json({ success: true, message: "Payment verified and confirmed", data: { payment } });
 };
 
 export const getPaymentHistory = async (req, res) => {
@@ -154,16 +127,9 @@ export const razorpayWebhook = async (req, res) => {
   if (event === "payment.captured") {
     const { order_id, id: paymentId } = payload.payment.entity;
     const payment = await Payment.findOne({ razorpayOrderId: order_id });
-    if (payment && payment.status !== "succeeded") {
-      payment.status = "succeeded";
-      payment.razorpayPaymentId = paymentId;
-      await payment.save();
-      await Booking.findByIdAndUpdate(payment.booking, {
-        status: "confirmed",
-        paymentStatus: "paid",
-        razorpayOrderId: order_id,
-      });
-    }
+    // Always acknowledge a verified event once it is applied (or knowingly ignored) so Razorpay
+    // stops retrying; a thrown database error still returns 500 and gets redelivered.
+    if (payment) await settleCapture(payment, { razorpayPaymentId: paymentId });
   }
 
   res.json({ received: true });
@@ -187,6 +153,7 @@ export const refundPayment = async (req, res) => {
   });
 
   payment.status = "refunded";
+  if (payment.reconciliation?.status === "refund_required") payment.reconciliation.status = "resolved";
   payment.refundAmount = refundAmount;
   payment.refundedAt = new Date();
   payment.refundReason = reason;

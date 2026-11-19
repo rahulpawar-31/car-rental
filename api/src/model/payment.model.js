@@ -23,6 +23,13 @@ const paymentSchema = new mongoose.Schema(
     refundAmount: { type: Number, default: 0 },
     refundedAt: Date,
     refundReason: String,
+    // Set when money was captured that no booking can keep (e.g. the booking was cancelled
+    // before the capture arrived). The payment stays "succeeded": the money really was taken.
+    reconciliation: {
+      status: { type: String, enum: ["refund_required", "resolved"] },
+      reason: String,
+      flaggedAt: Date,
+    },
     description: String,
     receiptUrl: String,
     metadata: { type: mongoose.Schema.Types.Mixed },
@@ -32,6 +39,7 @@ const paymentSchema = new mongoose.Schema(
 
 paymentSchema.index({ booking: 1 });
 paymentSchema.index({ user: 1, status: 1 });
+paymentSchema.index({ "reconciliation.status": 1 }, { sparse: true });
 
 const Payment = mongoose.model("Payment", paymentSchema);
 export default Payment;
