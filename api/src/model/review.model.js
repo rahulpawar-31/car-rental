@@ -38,6 +38,11 @@ reviewSchema.post("findOneAndDelete", async function (doc) {
   if (doc) await updateCarRating(doc.car);
 });
 
+// Moderation flips isApproved through findByIdAndUpdate, which skips the save hook above.
+reviewSchema.post("findOneAndUpdate", async function (doc) {
+  if (doc) await updateCarRating(doc.car);
+});
+
 async function updateCarRating(carId) {
   const stats = await mongoose.model("Review").aggregate([
     { $match: { car: carId, isApproved: true } },
