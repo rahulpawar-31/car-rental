@@ -4,7 +4,8 @@ import mongoose from "mongoose";
 // `car` is what makes claims for the same car take turns (see services/reservationLock.js).
 const reservationLockSchema = new mongoose.Schema({
   car: { type: mongoose.Schema.Types.ObjectId, ref: "Car", required: true, unique: true },
-  owner: { type: String, required: true },
+  // Empty on the already-expired placeholder a first claim competes for.
+  owner: { type: String, default: "" },
   expiresAt: { type: Date, required: true },
 });
 

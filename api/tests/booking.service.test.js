@@ -24,7 +24,8 @@ const inHours = (h) => new Date(Date.now() + h * HOUR);
 // Nothing else is booking this car: the reservation lock is always free. (The lock itself, and
 // what happens when it is contended, is covered in reservationLock.test.js.)
 beforeEach(() => {
-  mock.method(ReservationLock, "findOneAndUpdate", async () => null);
+  mock.method(ReservationLock, "findOneAndUpdate", async () => ({})); // taken straight away
+  mock.method(ReservationLock, "exists", async () => ({ _id: "lock" })); // and still held at commit
   mock.method(ReservationLock, "create", async () => ({}));
   mock.method(ReservationLock, "deleteOne", async () => ({}));
 });

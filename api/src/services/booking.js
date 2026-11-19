@@ -213,11 +213,11 @@ export async function createBooking({ user, input }, { sendEmail = sendBookingCo
     // interleave with another request's. (Checking, inserting and checking again can't promise
     // this: each request can miss the other's row while it is still in flight.) The check above
     // is only a cheap early exit; this one decides.
-    booking = await withCarLock(carId, async () => {
+    booking = await withCarLock(carId, async (lock) => {
       const taken = await Booking.findOne(bookingConflictQuery({ carId, pickup, drop }));
       if (taken) throw new AppError("Car is not available for the selected dates", 409);
 
-      return Booking.create({
+      const created = await Booking.create({
         user: user._id,
         car: carId,
         ...(pickupLocationId && { pickupLocation: pickupLocationId }),
@@ -238,6 +238,19 @@ export async function createBooking({ user, input }, { sendEmail = sendBookingCo
         notes,
         status: "pending",
       });
+
+      // The lease can run out while the insert is in flight, letting another request take over
+      // and book the same dates before this row was visible. Only a booking whose insert finished
+      // under a still-valid lease is kept; otherwise it is removed again.
+      try {
+        await lock.assertHeld();
+      } catch (err) {
+        await Booking.deleteOne({ _id: created._id }).catch((deleteErr) =>
+          logger.error(`Could not remove booking ${created._id} created after its reservation lock expired: ${deleteErr.message}`)
+        );
+        throw err;
+      }
+      return created;
     });
   } catch (err) {
     if (appliedCoupon && !booking) {
@@ -319,6 +332,26 @@ export async function cancelUserBooking(userId, bookingId, reason) {
 }
 
 /**
+ * Puts a booking back on its original dates and amounts with one atomic write that does not depend
+ * on the document's in-memory state. Retried once; if both attempts fail the booking is stuck on
+ * the new dates, which is logged for follow-up and reported as a 500 rather than a 409 that would
+ * tell the user nothing changed.
+ */
+async function restoreOriginal(bookingId, original) {
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await Booking.updateOne({ _id: bookingId }, { $set: original });
+      return;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  logger.error(`Could not restore booking ${bookingId} after a failed reschedule: ${lastErr.message}`);
+  throw new AppError("The reschedule could not be completed and the booking could not be restored automatically. Please contact support.", 500);
+}
+
+/**
  * Moves the user's booking to new dates, repricing it. Rolls the booking back if a concurrent
  * booking lands on the new dates between the check and the save.
  */
@@ -363,11 +396,22 @@ export async function rescheduleUserBooking(userId, bookingId, { pickupDate, dro
 
   // The availability check and the save take turns with every other claim on this car (new
   // bookings and other reschedules), so the new dates can't be given away in between.
-  await withCarLock(booking.car, async () => {
+  await withCarLock(booking.car, async (lock) => {
     const conflict = await Booking.findOne(
       bookingConflictQuery({ carId: booking.car, pickup, drop, excludeBookingId: booking._id })
     );
     if (conflict) throw new AppError("Car is not available for the selected dates", 409);
+
+    const original = {
+      pickupDate: booking.pickupDate,
+      dropDate: booking.dropDate,
+      totalDays: booking.totalDays,
+      baseAmount: booking.baseAmount,
+      discountAmount: booking.discountAmount,
+      taxAmount: booking.taxAmount,
+      totalAmount: booking.totalAmount,
+      paymentStatus: booking.paymentStatus,
+    };
 
     booking.pickupDate = pickup;
     booking.dropDate = drop;
@@ -381,6 +425,15 @@ export async function rescheduleUserBooking(userId, bookingId, { pickupDate, dro
     booking.totalAmount = totalAmount;
     if (!wasPaid) booking.paymentStatus = "pending";
     await booking.save();
+
+    // As for a new booking: if the lease ran out while the save was in flight, another request may
+    // have been given these dates, so the move is undone instead of kept.
+    try {
+      await lock.assertHeld();
+    } catch (err) {
+      await restoreOriginal(booking._id, original);
+      throw err;
+    }
   });
 
   // Fix #3: now that the reschedule is saved, void any stale pending Razorpay order so the user
