@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { Calendar, Clock, User, Shield, Tag, ChevronRight, Plane, MapPin } from 'lucide-react'
 import { getCarById } from '../api/cars'
@@ -42,8 +42,9 @@ export default function Booking() {
   const [hours, setHours] = useState(2)
   const [notes, setNotes] = useState('')
   const [coupon, setCoupon] = useState('')
-  const [discountAmount, setDiscountAmount] = useState(0)
-  const [couponApplied, setCouponApplied] = useState(false)
+  // A coupon preview is only valid for the rental it was requested for: it is stored together
+  // with that rental's pricing key, and counts as applied only while the key still matches.
+  const [appliedCoupon, setAppliedCoupon] = useState(null) // { key, code, discountAmount }
   const [pickupLocation, setPickupLocation] = useState(state.pickupLocation?._id || '')
   const [dropLocation, setDropLocation] = useState(state.dropLocation?._id || '')
   const [customPickupAddr, setCustomPickupAddr] = useState('')
@@ -77,6 +78,19 @@ export default function Booking() {
   })
 
   const days = rentalType === 'day' ? rentalDays(bookingWindow) : 0
+
+  // Everything the server prices the booking from.
+  const pricingKey = bookingWindow
+    ? [rentalType, bookingWindow.pickupDate, bookingWindow.dropDate, rentalType === 'hour' ? hours : ''].join('|')
+    : ''
+  const couponApplied = !!appliedCoupon && appliedCoupon.key === pricingKey && appliedCoupon.code === coupon
+  const discountAmount = couponApplied ? appliedCoupon.discountAmount : 0
+
+  // The pricing key as of the latest render, so a slow preview can tell the rental changed.
+  const pricingKeyRef = useRef(pricingKey)
+  useEffect(() => {
+    pricingKeyRef.current = pricingKey
+  }, [pricingKey])
 
   const baseAmount = computeBaseAmount(rates, { rentalType, days, hours })
 
@@ -142,14 +156,23 @@ export default function Booking() {
       return toast.error('Select dates before applying coupon')
     if (rentalType !== 'day' && !pickupDate)
       return toast.error('Select a pickup date before applying coupon')
+    const requestKey = pricingKey
+    const requestCode = coupon
     try {
       const { data } = await applyCoupon({
         code: coupon,
         carId,
         ...bookingWindow,
+        rentalType,
+        ...(rentalType === 'hour' && { totalHours: hours }),
       })
-      setDiscountAmount(data.data.discountAmount || 0)
-      setCouponApplied(true)
+      // The dates, times or duration changed while this was in flight: its discount is for a
+      // rental that is no longer selected.
+      if (pricingKeyRef.current !== requestKey) {
+        toast.error('Your rental changed — apply the coupon again')
+        return
+      }
+      setAppliedCoupon({ key: requestKey, code: requestCode, discountAmount: data.data.discountAmount || 0 })
       toast.success(`Coupon applied! ₹${data.data.discountAmount} off`)
     } catch (err) {
       toast.error(getErrorMessage(err, 'Invalid coupon'))
@@ -202,8 +225,7 @@ export default function Booking() {
   }
 
   const resetCoupon = () => {
-    setCouponApplied(false)
-    setDiscountAmount(0)
+    setAppliedCoupon(null)
   }
 
   if (loading)
