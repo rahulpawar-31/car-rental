@@ -429,7 +429,9 @@ export async function rescheduleUserBooking(userId, bookingId, { pickupDate, dro
   // so the user can't pay the old (lower) amount. Done after the rollback check above so a
   // failed reschedule doesn't orphan a still-valid pending payment for the original dates.
   if (original.paymentStatus !== "paid") {
-    await Payment.deleteOne({ booking: booking._id, status: "pending" });
+    // Void it rather than delete it: if its checkout is still open and gets paid, the capture must
+    // still be traceable to this order so it can be reconciled.
+    await Payment.updateMany({ booking: booking._id, status: "pending" }, { status: "cancelled" });
   }
 
   return Booking.findById(booking._id)

@@ -476,11 +476,11 @@ describe("rescheduleUserBooking", () => {
     await rejectsWith(rescheduleUserBooking("user1", "b1", dates()), 400, "Only pending or confirmed bookings can be rescheduled");
   });
 
-  it("reprices the booking and voids a stale pending payment", async () => {
+  it("reprices the booking and voids (not deletes) a stale pending payment", async () => {
     const booking = existing();
     sequence(Booking, "findOne", booking, null, null); // booking, conflict check, post-save recheck
     sequence(Car, "findById", car);
-    const deleteOne = mock.method(Payment, "deleteOne", async () => ({}));
+    const voidPayments = mock.method(Payment, "updateMany", async () => ({}));
     sequence(Booking, "findById", chain({ _id: "b1" }));
 
     await rescheduleUserBooking("user1", "b1", dates());
@@ -489,20 +489,20 @@ describe("rescheduleUserBooking", () => {
     assert.equal(booking.baseAmount, 4000);
     assert.equal(booking.paymentStatus, "pending");
     assert.equal(booking.save.mock.callCount(), 1);
-    assert.deepEqual(deleteOne.mock.calls[0].arguments[0], { booking: "b1", status: "pending" });
+    assert.deepEqual(voidPayments.mock.calls[0].arguments, [{ booking: "b1", status: "pending" }, { status: "cancelled" }]);
   });
 
   it("leaves a paid booking's payment untouched", async () => {
     const booking = existing({ paymentStatus: "paid" });
     sequence(Booking, "findOne", booking, null, null);
     sequence(Car, "findById", car);
-    const deleteOne = mock.method(Payment, "deleteOne", async () => ({}));
+    const voidPayments = mock.method(Payment, "updateMany", async () => ({}));
     sequence(Booking, "findById", chain({ _id: "b1" }));
 
     await rescheduleUserBooking("user1", "b1", dates());
 
     assert.equal(booking.paymentStatus, "paid");
-    assert.equal(deleteOne.mock.callCount(), 0);
+    assert.equal(voidPayments.mock.callCount(), 0);
   });
 
   describe("rental span", () => {
@@ -510,7 +510,7 @@ describe("rescheduleUserBooking", () => {
       const booking = existing({ rentalType: "hour", totalHours: 48 });
       sequence(Booking, "findOne", booking, null, null);
       sequence(Car, "findById", { ...car, pricePerHour: 100 });
-      mock.method(Payment, "deleteOne", async () => ({}));
+      mock.method(Payment, "updateMany", async () => ({}));
       sequence(Booking, "findById", chain({ _id: "b1" }));
 
       await rescheduleUserBooking("user1", "b1", dates()); // 48h window, 48 totalHours
@@ -551,7 +551,7 @@ describe("rescheduleUserBooking", () => {
       const original = { ...booking };
       sequence(Booking, "findOne", booking, null, { _id: "other" });
       sequence(Car, "findById", car);
-      const deleteOne = mock.method(Payment, "deleteOne", async () => ({}));
+      const voidPayments = mock.method(Payment, "updateMany", async () => ({}));
       const updateOne = mock.method(Booking, "updateOne", async () => ({}));
 
       await rejectsWith(rescheduleUserBooking("user1", "b1", dates()), 409, "Car is not available for the selected dates");
@@ -562,7 +562,7 @@ describe("rescheduleUserBooking", () => {
       assert.deepEqual(filter, { _id: "b1" });
       assert.deepEqual(Object.keys(update.$set).sort(), [...originalFields].sort());
       for (const key of originalFields) assert.deepEqual(update.$set[key], original[key], key);
-      assert.equal(deleteOne.mock.callCount(), 0);
+      assert.equal(voidPayments.mock.callCount(), 0);
     });
 
     it("retries the restore once before giving up", async () => {
