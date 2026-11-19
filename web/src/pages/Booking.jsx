@@ -13,6 +13,7 @@ import LocationFields from '../components/booking/LocationFields'
 import { toast } from 'sonner'
 import { TIME_SLOTS, HOUR_OPTIONS } from '../constants/booking'
 import { deriveRentalRates, computeBaseAmount, computeTaxAndTotal } from '../lib/pricing'
+import { buildBookingWindow, rentalDays } from '../lib/bookingWindow'
 import CarPhoto from '../components/ui/CarPhoto'
 
 const RENTAL_LABELS = { day: 'Per Day', hour: 'Per Hour', airport: 'Airport Transfer' }
@@ -65,10 +66,17 @@ export default function Booking() {
   const rates = deriveRentalRates(car)
   const { pricePerDay, pricePerHour, airportPrice } = rates
 
-  const days = (() => {
-    if (rentalType !== 'day' || !pickupDate || !dropDate) return 0
-    return Math.max(0, Math.ceil((new Date(dropDate) - new Date(pickupDate)) / 86400000))
-  })()
+  // The exact pickup/drop instants the API receives (selected times included).
+  const bookingWindow = buildBookingWindow({
+    rentalType,
+    pickupDate,
+    pickupTime,
+    dropDate,
+    dropTime,
+    hours,
+  })
+
+  const days = rentalType === 'day' ? rentalDays(bookingWindow) : 0
 
   const baseAmount = computeBaseAmount(rates, { rentalType, days, hours })
 
@@ -81,16 +89,6 @@ export default function Booking() {
 
   const securityDeposit = car?.securityDeposit || 0
   const { tax, total } = computeTaxAndTotal({ baseAmount, discountAmount, securityDeposit })
-
-  // Compute a synthetic dropDate for the backend date-range check
-  const effectiveDropDate = (() => {
-    if (rentalType === 'day') return dropDate
-    if (!pickupDate) return ''
-    const d = new Date(pickupDate)
-    if (rentalType === 'hour') d.setDate(d.getDate() + Math.ceil(hours / 24))
-    if (rentalType === 'airport') d.setDate(d.getDate() + 1)
-    return d.toISOString().split('T')[0]
-  })()
 
   const validate = () => {
     if (!car?.isAvailable) {
@@ -111,6 +109,10 @@ export default function Booking() {
         return false
       }
     }
+    if (!bookingWindow) {
+      toast.error('Check the pickup and drop-off date and time')
+      return false
+    }
     return true
   }
 
@@ -123,8 +125,7 @@ export default function Booking() {
       .join(' | ')
     return {
       carId,
-      pickupDate,
-      dropDate: effectiveDropDate || pickupDate,
+      ...bookingWindow,
       rentalType,
       ...(rentalType === 'hour' && { totalHours: hours }),
       notes: [extraNotes, addrNote, notes].filter(Boolean).join(' · ') || undefined,
@@ -145,8 +146,7 @@ export default function Booking() {
       const { data } = await applyCoupon({
         code: coupon,
         carId,
-        pickupDate,
-        dropDate: effectiveDropDate || pickupDate,
+        ...bookingWindow,
       })
       setDiscountAmount(data.data.discountAmount || 0)
       setCouponApplied(true)
