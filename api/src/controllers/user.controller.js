@@ -44,7 +44,9 @@ export const updateAvatar = async (req, res) => {
 export const changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
-  const user = await User.findById(req.user._id).select("+password");
+  // The reset grant fields are `select: false`; they have to be loaded for clearing them below
+  // to reach the database.
+  const user = await User.findById(req.user._id).select("+password +passwordResetToken +passwordResetExpiry");
   if (!(await user.comparePassword(currentPassword))) {
     throw new AppError("Current password is incorrect", 401);
   }
@@ -52,6 +54,9 @@ export const changePassword = async (req, res) => {
   user.password = newPassword;
   user.passwordChangedAt = new Date();
   user.refreshToken = undefined;
+  // A reset token issued before this change must not be able to overwrite the new password.
+  user.passwordResetToken = undefined;
+  user.passwordResetExpiry = undefined;
   await user.save();
 
   clearTokenCookies(res);

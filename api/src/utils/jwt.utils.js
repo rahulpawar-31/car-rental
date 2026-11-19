@@ -12,8 +12,9 @@ export const generateRefreshToken = (userId) => {
   });
 };
 
-export const generateResetToken = (userId) => {
-  return jwt.sign({ id: userId, role: "reset" }, process.env.JWT_SECRET, {
+// `grant` is the server-stored nonce that makes the token single-use (see verifyOtp/resetPassword).
+export const generateResetToken = (userId, grant) => {
+  return jwt.sign({ id: userId, role: "reset", jti: grant }, process.env.JWT_SECRET, {
     expiresIn: "10m",
   });
 };
