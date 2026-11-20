@@ -39,9 +39,24 @@ jobs:
         run: npm run typecheck
         working-directory: api
 
+      - name: Start MongoDB replica set
+        run: |
+          docker run --detach --name car-rental-mongo --publish 27017:27017 mongo:8.0 --replSet rs0 --bind_ip_all
+          for attempt in {1..30}; do
+            if docker exec car-rental-mongo mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'; then
+              docker exec car-rental-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs car-rental-mongo
+          exit 1
+
       - name: Run tests
         run: npm test
         working-directory: api
+        env:
+          MONGO_TEST_URL: mongodb://127.0.0.1:27017/car_rental_test?replicaSet=rs0
 
   web:
     name: Web
@@ -75,7 +90,7 @@ jobs:
 
   e2e:
     name: E2E
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
