@@ -1,5 +1,6 @@
 import Booking from "../model/booking.model.js";
 import Payment from "../model/payment.model.js";
+import UnmatchedCapture from "../model/unmatchedCapture.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
   createOrder,
@@ -7,6 +8,7 @@ import {
   verifyPaymentSignature,
   verifyWebhookSignature,
 } from "../services/razorpay.js";
+import { settleCapture, SETTLEMENT } from "../services/paymentSettlement.js";
 
 export const createPaymentIntent = async (req, res) => {
   const { bookingId } = req.body;
@@ -32,17 +34,19 @@ export const createPaymentIntent = async (req, res) => {
     },
   });
 
-  await Payment.findOneAndUpdate(
-    { booking: bookingId },
-    {
-      booking: bookingId,
-      user: req.user._id,
-      amount: booking.totalAmount,
-      razorpayOrderId: order.id,
-      status: "pending",
-      method: "card",
-    },
-    { upsert: true, new: true }
+  // One record per order, and none is ever overwritten or deleted: a payment made against an
+  // earlier order must still be traceable. Older attempts that are still pending are voided.
+  await Payment.create({
+    booking: bookingId,
+    user: req.user._id,
+    amount: booking.totalAmount,
+    razorpayOrderId: order.id,
+    status: "pending",
+    method: "card",
+  });
+  await Payment.updateMany(
+    { booking: bookingId, status: "pending", razorpayOrderId: { $ne: order.id } },
+    { status: "cancelled" }
   );
 
   res.json({
@@ -67,56 +71,31 @@ export const confirmPayment = async (req, res) => {
   const existing = await Payment.findOne({ razorpayOrderId, user: req.user._id });
   if (!existing) throw new AppError("Payment record not found", 404);
 
-  // Fix #12: idempotent retry — a client retry or a race with the webhook can call this
-  // twice for the same order. Without this, the second call would find the booking no
-  // longer "pending" and wrongly flip an already-succeeded payment to "failed".
-  if (existing.status === "succeeded") {
-    return res.json({
-      success: true,
-      message: "Payment verified and confirmed",
-      data: { payment: existing },
-    });
-  }
+  // Retries and the capture webhook can all reach this for the same order. Settling re-checks the
+  // booking every time (a succeeded payment alone doesn't prove it was confirmed), so a retry
+  // repairs a half-finished earlier attempt instead of acknowledging it.
+  const { outcome, payment } = await settleCapture(existing, { razorpayPaymentId, razorpaySignature });
 
-  const payment = await Payment.findOneAndUpdate(
-    { _id: existing._id, status: { $ne: "succeeded" } },
-    { status: "succeeded", razorpayPaymentId, razorpaySignature },
-    { new: true }
+  if (outcome === SETTLEMENT.CONFIRMED) {
+    return res.json({ success: true, message: "Payment verified and confirmed", data: { payment } });
+  }
+  if (outcome === SETTLEMENT.REFUNDED) {
+    throw new AppError("This payment has already been refunded", 409);
+  }
+  throw new AppError(
+    "This booking is no longer payable — it may have been cancelled or already confirmed. Your payment was received and will be refunded.",
+    409
   );
-  if (!payment) {
-    // Lost the race to a concurrent confirm call that just succeeded — treat as success too.
-    const latest = await Payment.findById(existing._id);
-    return res.json({
-      success: true,
-      message: "Payment verified and confirmed",
-      data: { payment: latest },
-    });
-  }
-
-  // Fix #11: the booking may have been cancelled (or already confirmed by a prior race)
-  // since this Razorpay order was created — don't let a stale checkout session revive it.
-  const booking = await Booking.findOneAndUpdate(
-    { _id: payment.booking, status: "pending" },
-    { status: "confirmed", paymentStatus: "paid", razorpayOrderId },
-    { new: true }
-  );
-  if (!booking) {
-    payment.status = "failed";
-    await payment.save();
-    throw new AppError(
-      "This booking is no longer payable — it may have been cancelled or already confirmed",
-      409
-    );
-  }
-
-  res.json({ success: true, message: "Payment verified and confirmed", data: { payment } });
 };
 
 export const getPaymentHistory = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
 
+  // Voided checkout attempts (superseded when the booking was repriced or checkout restarted) are
+  // not payments the customer made.
+  const query = { user: req.user._id, status: { $ne: "cancelled" } };
   const [payments, total] = await Promise.all([
-    Payment.find({ user: req.user._id })
+    Payment.find(query)
       .populate({
         path: "booking",
         select: "bookingNumber pickupDate dropDate status",
@@ -125,7 +104,7 @@ export const getPaymentHistory = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit)),
-    Payment.countDocuments({ user: req.user._id }),
+    Payment.countDocuments(query),
   ]);
 
   res.json({
@@ -154,15 +133,17 @@ export const razorpayWebhook = async (req, res) => {
   if (event === "payment.captured") {
     const { order_id, id: paymentId } = payload.payment.entity;
     const payment = await Payment.findOne({ razorpayOrderId: order_id });
-    if (payment && payment.status !== "succeeded") {
-      payment.status = "succeeded";
-      payment.razorpayPaymentId = paymentId;
-      await payment.save();
-      await Booking.findByIdAndUpdate(payment.booking, {
-        status: "confirmed",
-        paymentStatus: "paid",
-        razorpayOrderId: order_id,
-      });
+    // Acknowledge a verified event only once it is applied, or durably recorded for follow-up;
+    // a thrown database error still returns 500 and gets redelivered.
+    if (payment) {
+      await settleCapture(payment, { razorpayPaymentId: paymentId });
+    } else {
+      const { amount, currency } = payload.payment.entity;
+      await UnmatchedCapture.updateOne(
+        { razorpayPaymentId: paymentId },
+        { $setOnInsert: { razorpayPaymentId: paymentId, razorpayOrderId: order_id, amount, currency, event: req.body } },
+        { upsert: true }
+      );
     }
   }
 
@@ -175,10 +156,17 @@ export const refundPayment = async (req, res) => {
   const booking = await Booking.findById(bookingId);
   if (!booking) throw new AppError("Booking not found", 404);
 
-  const payment = await Payment.findOne({ booking: bookingId, status: "succeeded" });
+  // A capture flagged for refund (cancelled or repriced booking) comes first: that money is owed
+  // back whatever state the booking is in.
+  const flagged = await Payment.findOne({
+    booking: bookingId,
+    status: "succeeded",
+    "reconciliation.status": "refund_required",
+  });
+  const payment = flagged || (await Payment.findOne({ booking: bookingId, status: "succeeded" }));
   if (!payment) throw new AppError("No successful payment found", 404);
 
-  const refundAmount = booking.refundAmount || 0;
+  const refundAmount = flagged ? payment.amount : booking.refundAmount || 0;
   if (refundAmount <= 0) throw new AppError("No refund applicable", 400);
 
   const refund = await refundPaymentGateway(payment.razorpayPaymentId, {
@@ -187,13 +175,17 @@ export const refundPayment = async (req, res) => {
   });
 
   payment.status = "refunded";
+  if (flagged) payment.reconciliation.status = "resolved";
   payment.refundAmount = refundAmount;
   payment.refundedAt = new Date();
   payment.refundReason = reason;
   payment.razorpayRefundId = refund.id;
   await payment.save();
 
-  await Booking.findByIdAndUpdate(bookingId, { paymentStatus: "refunded", refundedAt: new Date() });
+  // A flagged capture never paid for this booking, so the booking's own payment state is unchanged.
+  if (!flagged) {
+    await Booking.findByIdAndUpdate(bookingId, { paymentStatus: "refunded", refundedAt: new Date() });
+  }
 
   res.json({
     success: true,
