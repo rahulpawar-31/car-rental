@@ -9,6 +9,7 @@ import { parseValidDate } from "../utils/date.utils.js";
 import { logger } from "../utils/logger.js";
 import { computeBookingQuote } from "./booking.quote.js";
 import { bookingConflictQuery } from "./carAvailability.js";
+import { withCarLock } from "./reservationLock.js";
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 
@@ -126,9 +127,10 @@ function releaseCouponClaim(couponId, userId) {
 }
 
 /**
- * Creates a booking: availability check, coupon claim, pricing, persistence, then a race
- * recheck that rolls back (booking and coupon claim) if a concurrent request won the dates.
- * Once the coupon is claimed, any failure before the booking exists gives the claim back.
+ * Creates a booking: availability check, coupon claim, pricing, then the final availability
+ * check and the insert together under the car's reservation lock, so two requests for the same
+ * car can't both get overlapping dates. Once the coupon is claimed, any failure before the
+ * booking exists (including losing the dates to another request) gives the claim back.
  *
  * @param {{ user: any, input: any }} args - `user` is the authenticated user document.
  * @param {{ sendEmail?: typeof sendBookingConfirmationEmail }} [deps]
@@ -207,39 +209,36 @@ export async function createBooking({ user, input }, { sendEmail = sendBookingCo
     });
     totalAmount = quote.totalAmount;
 
-    booking = await Booking.create({
-      user: user._id,
-      car: carId,
-      ...(pickupLocationId && { pickupLocation: pickupLocationId }),
-      ...(dropLocationId && { dropLocation: dropLocationId }),
-      pickupDate: pickup,
-      dropDate: drop,
-      totalDays: quote.totalDays,
-      ...(rentalType === "hour" && { totalHours }),
-      rentalType: rentalType || "day",
-      pricePerDay: car.pricePerDay,
-      baseAmount: quote.baseAmount,
-      discountAmount: quote.discountAmount,
-      taxAmount: quote.taxAmount,
-      totalAmount,
-      securityDeposit: car.securityDeposit,
-      coupon: appliedCoupon,
-      driverDetails,
-      notes,
-      status: "pending",
-    });
+    // Claims on one car take turns, so the final availability check and the insert can't
+    // interleave with another request's. (Checking, inserting and checking again can't promise
+    // this: each request can miss the other's row while it is still in flight.) The check above
+    // is only a cheap early exit; this one decides.
+    booking = await withCarLock(carId, async () => {
+      const taken = await Booking.findOne(bookingConflictQuery({ carId, pickup, drop }));
+      if (taken) throw new AppError("Car is not available for the selected dates", 409);
 
-    // Fix #10: the availability check above and this create() aren't atomic, so two concurrent
-    // requests for the same car/dates can both pass it. Re-verify now that both rows exist;
-    // whichever booking has the smaller _id (created first) wins.
-    const earlierConflict = await Booking.findOne(
-      bookingConflictQuery({ carId, pickup, drop, tieBreakBeforeId: booking._id })
-    );
-    if (earlierConflict) {
-      await Booking.deleteOne({ _id: booking._id });
-      booking = null; // gone, so the catch below gives the coupon claim back
-      throw new AppError("Car is not available for the selected dates", 409);
-    }
+      return Booking.create({
+        user: user._id,
+        car: carId,
+        ...(pickupLocationId && { pickupLocation: pickupLocationId }),
+        ...(dropLocationId && { dropLocation: dropLocationId }),
+        pickupDate: pickup,
+        dropDate: drop,
+        totalDays: quote.totalDays,
+        ...(rentalType === "hour" && { totalHours }),
+        rentalType: rentalType || "day",
+        pricePerDay: car.pricePerDay,
+        baseAmount: quote.baseAmount,
+        discountAmount: quote.discountAmount,
+        taxAmount: quote.taxAmount,
+        totalAmount,
+        securityDeposit: car.securityDeposit,
+        coupon: appliedCoupon,
+        driverDetails,
+        notes,
+        status: "pending",
+      });
+    });
   } catch (err) {
     if (appliedCoupon && !booking) {
       await releaseCouponClaim(appliedCoupon, user._id).catch((releaseErr) =>
@@ -320,8 +319,8 @@ export async function cancelUserBooking(userId, bookingId, reason) {
 }
 
 /**
- * Moves the user's booking to new dates, repricing it. Rolls the booking back if a concurrent
- * booking lands on the new dates between the check and the save.
+ * Moves the user's booking and price atomically under the car's reservation transaction.
+ * A paid booking can only move to dates that cost the same.
  */
 export async function rescheduleUserBooking(userId, bookingId, { pickupDate, dropDate }) {
   const { pickup, drop } = parseRentalWindow(pickupDate, dropDate);
@@ -337,11 +336,6 @@ export async function rescheduleUserBooking(userId, bookingId, { pickupDate, dro
   // hourly booking keeps its length (it is priced from totalHours) and an airport transfer
   // stays within 24h.
   assertRentalSpan({ rentalType: booking.rentalType, pickup, drop, totalHours: booking.totalHours, rescheduling: true });
-
-  const conflict = await Booking.findOne(
-    bookingConflictQuery({ carId: booking.car, pickup, drop, excludeBookingId: booking._id })
-  );
-  if (conflict) throw new AppError("Car is not available for the selected dates", 409);
 
   const car = await Car.findById(booking.car);
   if (!car) throw new AppError("Car not found", 404);
@@ -365,71 +359,66 @@ export async function rescheduleUserBooking(userId, bookingId, { pickupDate, dro
     coupon: booking.discountAmount ? { type: "fixed", value: booking.discountAmount } : null,
   });
 
-  // Fix #10: snapshot originals in case the post-save conflict check below forces a rollback
-  const original = {
-    pickupDate: booking.pickupDate,
-    dropDate: booking.dropDate,
-    totalDays: booking.totalDays,
-    baseAmount: booking.baseAmount,
-    discountAmount: booking.discountAmount,
-    taxAmount: booking.taxAmount,
-    totalAmount: booking.totalAmount,
-    paymentStatus: booking.paymentStatus,
-  };
+  const wasPaid = booking.paymentStatus === "paid";
 
-  booking.pickupDate = pickup;
-  booking.dropDate = drop;
-  booking.totalDays = totalDays;
-  booking.baseAmount = baseAmount;
-  // discountAmount can shrink here (Fix #9's cap) even though it started
-  // from booking.discountAmount — save the capped value, not the original,
-  // so it stays consistent with the taxAmount/totalAmount derived from it.
-  booking.discountAmount = discountAmount;
-  booking.taxAmount = taxAmount;
-  booking.totalAmount = totalAmount;
-  if (booking.paymentStatus !== "paid") booking.paymentStatus = "pending";
-  await booking.save();
+  // A paid booking's price is fixed by what was collected. There is no supplemental-charge or
+  // partial-refund flow, so moving it to dates that change the price would either leave a larger
+  // balance marked as paid or silently keep money the customer is owed back. Allow only moves
+  // that cost the same (e.g. the same number of days); anything else is cancelled and rebooked.
+  // (This is the early, friendly answer. The write below re-checks the same facts atomically, so a
+  // payment that completes between this read and that write is caught too.)
+  if (wasPaid && totalAmount !== booking.totalAmount) {
+    throw new AppError(
+      `This booking is already paid (₹${booking.totalAmount}) and the new dates would change the price to ₹${totalAmount}. ` +
+        "Choose dates that cost the same, or cancel this booking and make a new one.",
+      400
+    );
+  }
 
-  // Puts the booking back on its original dates and amounts with one atomic write that does not
-  // depend on this document's in-memory state. Retried once; if both attempts fail the booking
-  // is stuck on the new dates, which is logged for follow-up and reported as a 500 rather than
-  // the 409 that would tell the user nothing changed.
-  const restoreOriginal = async () => {
-    let lastErr;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        await Booking.updateOne({ _id: booking._id }, { $set: original });
-        return;
-      } catch (err) {
-        lastErr = err;
-      }
-    }
-    logger.error(`Could not restore booking ${booking._id} after a failed reschedule: ${lastErr.message}`);
-    throw new AppError("The reschedule conflicted and the booking could not be restored automatically. Please contact support.", 500);
-  };
-
-  // Re-verify: the conflict check above and this save() aren't atomic, so a concurrent
-  // booking/reschedule for the same car could have landed on these dates in between. If the
-  // check itself fails we can't tell, so fail closed and restore the original dates.
-  let overlapping;
-  try {
-    overlapping = await Booking.findOne(
+  // The availability check and the save take turns with every other claim on this car (new
+  // bookings and other reschedules), so the new dates can't be given away in between.
+  await withCarLock(booking.car, async () => {
+    const conflict = await Booking.findOne(
       bookingConflictQuery({ carId: booking.car, pickup, drop, excludeBookingId: booking._id })
     );
-  } catch (err) {
-    await restoreOriginal();
-    throw err;
-  }
-  if (overlapping) {
-    await restoreOriginal();
-    throw new AppError("Car is not available for the selected dates", 409);
-  }
+    if (conflict) throw new AppError("Car is not available for the selected dates", 409);
 
-  // Fix #3: now that the reschedule is confirmed, void any stale pending Razorpay order
-  // so the user can't pay the old (lower) amount. Done after the rollback check above so a
-  // failed reschedule doesn't orphan a still-valid pending payment for the original dates.
-  if (original.paymentStatus !== "paid") {
-    await Payment.deleteOne({ booking: booking._id, status: "pending" });
+    // One conditional write moves the dates and the price together, and only if the booking is
+    // still exactly as it was read: same status, same payment state, same amount. Payment
+    // confirmation makes the mirror-image write (it needs the booking still at the amount the
+    // checkout was created for), so of a reschedule and a confirmation racing each other exactly
+    // one lands on the old state and the other sees the change. Either the payment completes
+    // first (the paid-price rule above then applies on retry) or the booking is repriced first
+    // (and the stale checkout is flagged for refund instead of marking the new price paid).
+    const moved = await Booking.findOneAndUpdate(
+      { _id: booking._id, status: booking.status, paymentStatus: booking.paymentStatus, totalAmount: booking.totalAmount },
+      {
+        $set: {
+          pickupDate: pickup,
+          dropDate: drop,
+          totalDays,
+          baseAmount,
+          // discountAmount can shrink here (Fix #9's cap) even though it started from the booking's
+          // own, so the capped value is saved to stay consistent with taxAmount/totalAmount.
+          discountAmount,
+          taxAmount,
+          totalAmount,
+          ...(!wasPaid && { paymentStatus: "pending" }),
+        },
+      }
+    );
+    if (!moved) {
+      throw new AppError("This booking was just updated (for example, a payment was completed). Please check it and try again.", 409);
+    }
+  });
+
+  // Fix #3: now that the reschedule is saved, void any stale pending Razorpay order so the user
+  // can't pay the old (lower) amount. Done only once the move succeeded, so a failed reschedule
+  // doesn't orphan a still-valid pending payment for the original dates.
+  if (!wasPaid) {
+    // Void it rather than delete it: if its checkout is still open and gets paid, the capture must
+    // still be traceable to this order so it can be reconciled.
+    await Payment.updateMany({ booking: booking._id, status: "pending" }, { status: "cancelled" });
   }
 
   return Booking.findById(booking._id)

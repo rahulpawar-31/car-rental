@@ -42,10 +42,19 @@ car/
 ### Prerequisites
 
 - Node.js 20+
-- MongoDB Atlas cluster (or local MongoDB on port `27017`)
+- MongoDB Atlas cluster, or a local MongoDB **replica set** on port `27017`. Booking reservations
+  and payment settlement use transactions; a standalone MongoDB server is not supported.
 - Cloudinary account
 - Razorpay account (test keys work for development)
 - Resend account (or any SMTP provider)
+
+For local development, start MongoDB with `mongod --replSet rs0 --bind_ip 127.0.0.1 --dbpath <data-directory>`
+and initialize it once with `mongosh --eval 'rs.initiate()'`. Set `MONGO_URL` to
+`mongodb://127.0.0.1:27017/car_rental?replicaSet=rs0`. Atlas already provides transaction support.
+
+The database regression tests run with `MONGO_TEST_URL=mongodb://127.0.0.1:27017/car_rental_test?replicaSet=rs0 npm test`
+from `api/`. Use a throwaway replica set: the tests clear the `car_rental_test_reservations` and
+`car_rental_test_payment_atomic` databases on that server. CI starts its own disposable replica set.
 
 ### 1. Configure environment variables
 
