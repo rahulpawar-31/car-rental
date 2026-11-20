@@ -23,17 +23,13 @@ export const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed", "active"];
  * @param {string} [options.excludeBookingId] - exclude this booking from the
  *   conflict check (e.g. rescheduleBooking checking against everything
  *   except the booking being rescheduled).
- * @param {string} [options.tieBreakBeforeId] - only consider bookings created
- *   before this id (e.g. createBooking's post-create race recheck, where
- *   whichever concurrent request's row has the smaller _id wins).
  */
-export function bookingConflictQuery({ carId, pickup, drop, excludeBookingId, tieBreakBeforeId }) {
+export function bookingConflictQuery({ carId, pickup, drop, excludeBookingId }) {
   return {
     ...(carId && { car: carId }),
     status: { $in: ACTIVE_BOOKING_STATUSES },
     pickupDate: { $lte: drop },
     dropDate: { $gte: pickup },
     ...(excludeBookingId && { _id: { $ne: excludeBookingId } }),
-    ...(tieBreakBeforeId && { _id: { $lt: tieBreakBeforeId } }),
   };
 }

@@ -39,10 +39,4 @@ describe("bookingConflictQuery", () => {
 
     assert.deepEqual(query._id, { $ne: "booking1" });
   });
-
-  it("tie-breaks to bookings created before a given id, for the post-create race recheck", () => {
-    const query = bookingConflictQuery({ carId: "car1", pickup, drop, tieBreakBeforeId: "booking1" });
-
-    assert.deepEqual(query._id, { $lt: "booking1" });
-  });
 });
