@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import User from "../model/user.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
@@ -12,6 +13,7 @@ import { generateOTP } from "../utils/otp.utils.js";
 import { sendOtpEmail, sendWelcomeEmail } from "../utils/email.utils.js";
 
 const MAX_OTP_ATTEMPTS = 5;
+const RESET_GRANT_TTL_MS = 10 * 60 * 1000;
 
 export const register = async (req, res) => {
   const { name, email, password, phone } = req.body;
@@ -159,11 +161,20 @@ export const verifyOtp = async (req, res) => {
     throw new AppError("Invalid or expired OTP", 400);
   }
 
-  // Consume atomically so two parallel correct guesses can't both mint a reset token.
-  const consumed = await User.findOneAndUpdate({ _id: reserved._id, otp: reserved.otp }, burn);
+  // Consume atomically so two parallel correct guesses can't both mint a reset token. The same
+  // write stores the grant the token will carry; a newer grant replaces any older one, so only
+  // the most recently issued reset token can ever be used.
+  const grant = randomBytes(16).toString("hex");
+  const consumed = await User.findOneAndUpdate(
+    { _id: reserved._id, otp: reserved.otp },
+    {
+      $unset: burn.$unset,
+      $set: { ...burn.$set, passwordResetToken: grant, passwordResetExpiry: new Date(Date.now() + RESET_GRANT_TTL_MS) },
+    }
+  );
   if (!consumed) throw new AppError("Invalid or expired OTP", 400);
 
-  const resetToken = generateResetToken(reserved._id);
+  const resetToken = generateResetToken(reserved._id, grant);
   res.json({ success: true, message: "OTP verified", data: { resetToken } });
 };
 
@@ -177,10 +188,16 @@ export const resetPassword = async (req, res) => {
   } catch {
     throw new AppError("Invalid or expired reset token", 400);
   }
-  if (decoded.role !== "reset") throw new AppError("Invalid reset token", 400);
+  if (decoded.role !== "reset" || typeof decoded.jti !== "string") throw new AppError("Invalid reset token", 400);
 
-  const user = await User.findById(decoded.id);
-  if (!user) throw new AppError("User not found", 404);
+  // Spend the grant atomically before touching the password: a replay, or a parallel request
+  // carrying the same token, finds nothing to match. This is a stored nonce rather than a
+  // timestamp comparison, so there is no replay window within the same second.
+  const user = await User.findOneAndUpdate(
+    { _id: decoded.id, passwordResetToken: decoded.jti, passwordResetExpiry: { $gt: new Date() } },
+    { $unset: { passwordResetToken: 1, passwordResetExpiry: 1 } }
+  );
+  if (!user) throw new AppError("Invalid or expired reset token", 400);
 
   user.password = password;
   user.passwordChangedAt = new Date();

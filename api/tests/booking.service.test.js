@@ -464,9 +464,9 @@ describe("cancelUserBooking", () => {
 
 describe("rescheduleUserBooking", () => {
   const car = { _id: "car1", pricePerDay: 2000, securityDeposit: 5000 };
-  const dates = () => {
+  const dates = (hours = 48) => {
     const pickup = inHours(100);
-    return { pickupDate: pickup.toISOString(), dropDate: new Date(pickup.getTime() + 48 * HOUR).toISOString() };
+    return { pickupDate: pickup.toISOString(), dropDate: new Date(pickup.getTime() + hours * HOUR).toISOString() };
   };
   const existing = (overrides = {}) => ({
     _id: "b1",
@@ -544,7 +544,7 @@ describe("rescheduleUserBooking", () => {
       const { write } = setup(existing({ paymentStatus: "paid" }));
 
       await assert.rejects(
-        rescheduleUserBooking("user1", "b1", { pickupDate: inHours(100).toISOString(), dropDate: inHours(100 + 240).toISOString() }),
+        rescheduleUserBooking("user1", "b1", dates(240)),
         { statusCode: 400, message: /already paid/ }
       );
 
@@ -555,7 +555,7 @@ describe("rescheduleUserBooking", () => {
       const { write } = setup(paid());
 
       await assert.rejects(
-        rescheduleUserBooking("user1", "b1", { pickupDate: inHours(100).toISOString(), dropDate: inHours(124).toISOString() }),
+        rescheduleUserBooking("user1", "b1", dates(24)),
         { statusCode: 400, message: /already paid \(₹9720\).*₹7360/ }
       );
 
@@ -613,7 +613,7 @@ describe("rescheduleUserBooking", () => {
       const write = mock.method(Booking, "findOneAndUpdate", async () => ({}));
 
       await rejectsWith(
-        rescheduleUserBooking("user1", "b1", { pickupDate: inHours(100).toISOString(), dropDate: inHours(220).toISOString() }),
+        rescheduleUserBooking("user1", "b1", dates(120)),
         400,
         "Airport transfer bookings can span at most 24 hours — use a daily rental for longer trips"
       );
