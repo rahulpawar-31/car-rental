@@ -4,6 +4,7 @@ import CarDetail from '../pages/CarDetail'
 import { createBooking } from '../api/bookings'
 import { getLocations } from '../api/locations'
 import { getCarById } from '../api/cars'
+import { HOUR_OPTIONS } from '../constants/booking'
 
 const MOCK_CAR = {
   _id: 'car1',
@@ -143,8 +144,8 @@ describe('CarDetail booking form', () => {
     const payload = createBooking.mock.calls[0][0]
     expect(payload).toMatchObject({
       carId: 'car1',
-      pickupDate: '2026-12-01',
-      dropDate: '2026-12-03',
+      pickupDate: new Date(2026, 11, 1, 9, 0).toISOString(),
+      dropDate: new Date(2026, 11, 3, 9, 0).toISOString(),
       rentalType: 'day',
       pickupLocationId: 'loc1',
       driverDetails: { name: 'Priya Sharma', email: 'priya@example.com', phone: '9876543210' },
@@ -197,6 +198,61 @@ describe('CarDetail booking form', () => {
 
     expect(screen.getByText(/duration \(hours\)/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/drop off date/i)).not.toBeInTheDocument()
+  })
+})
+
+const hoursBetween = payload => (new Date(payload.dropDate) - new Date(payload.pickupDate)) / 3600000
+
+describe('CarDetail booking form timestamps', () => {
+  beforeEach(() => {
+    createBooking.mockClear()
+  })
+
+  async function fillAndBook({ type, pickupTime = '9:00 AM', hours, dropDate, dropTime }) {
+    renderCarDetail()
+    await waitFor(() => expect(screen.getByLabelText(/pickup date/i)).toBeInTheDocument())
+    if (type) {
+      fireEvent.click(screen.getByRole('button', { name: /per day/i }))
+      fireEvent.click(screen.getByRole('button', { name: type }))
+    }
+    fireEvent.change(screen.getByLabelText(/pickup date/i), { target: { value: '2026-12-01' } })
+    fireEvent.change(screen.getByLabelText(/pickup time/i), { target: { value: pickupTime } })
+    if (hours) fireEvent.click(screen.getByRole('button', { name: `${hours}h` }))
+    if (dropDate) fireEvent.change(screen.getByLabelText(/drop off date/i), { target: { value: dropDate } })
+    if (dropTime) fireEvent.change(screen.getByLabelText(/drop off time/i), { target: { value: dropTime } })
+    fireEvent.click(screen.getByRole('button', { name: /book instantly/i }))
+    await waitFor(() => expect(createBooking).toHaveBeenCalledTimes(1))
+    return createBooking.mock.calls[0][0]
+  }
+
+  test.each(HOUR_OPTIONS)('an hourly rental of %ih sends a window of exactly that length from the chosen time', async hours => {
+    const payload = await fillAndBook({ type: /^per hour/i, pickupTime: '2:30 PM', hours })
+
+    expect(payload.totalHours).toBe(hours)
+    expect(payload.pickupDate).toBe(new Date(2026, 11, 1, 14, 30).toISOString())
+    expect(hoursBetween(payload)).toBe(hours)
+  })
+
+  test('an hourly rental that crosses midnight ends on the next day', async () => {
+    const payload = await fillAndBook({ type: /^per hour/i, pickupTime: '9:00 PM', hours: 8 })
+
+    expect(payload.dropDate).toBe(new Date(2026, 11, 2, 5, 0).toISOString())
+  })
+
+  test('a daily rental keeps the chosen drop-off time', async () => {
+    const payload = await fillAndBook({ dropDate: '2026-12-03', dropTime: '6:00 PM' })
+
+    expect(payload.pickupDate).toBe(new Date(2026, 11, 1, 9, 0).toISOString())
+    expect(payload.dropDate).toBe(new Date(2026, 11, 3, 18, 0).toISOString())
+  })
+
+  test('an airport transfer starts at the chosen time and stays within 24 hours', async () => {
+    const payload = await fillAndBook({ type: /airport/i, pickupTime: '4:30 PM' })
+
+    expect(payload.rentalType).toBe('airport')
+    expect(payload.pickupDate).toBe(new Date(2026, 11, 1, 16, 30).toISOString())
+    expect(hoursBetween(payload)).toBeLessThanOrEqual(24)
+    expect(hoursBetween(payload)).toBeGreaterThan(0)
   })
 })
 

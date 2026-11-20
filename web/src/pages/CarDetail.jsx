@@ -35,6 +35,7 @@ import LocationFields from '../components/booking/LocationFields'
 import { toast } from 'sonner'
 import { TIME_SLOTS, HOUR_OPTIONS } from '../constants/booking'
 import { deriveRentalRates } from '../lib/pricing'
+import { buildBookingWindow } from '../lib/bookingWindow'
 import { reviewCountLabel } from '../lib/format'
 
 const MONTH_NAMES = [
@@ -312,6 +313,16 @@ export default function CarDetail() {
     }
   }
 
+  // The exact pickup/drop instants the API receives (selected times included).
+  const bookingWindow = buildBookingWindow({
+    rentalType,
+    pickupDate: formPickupDate,
+    pickupTime: formPickupTime,
+    dropDate: formDropDate,
+    dropTime: formDropTime,
+    hours: formHours,
+  })
+
   const validateForm = () => {
     if (!user) {
       navigate('/login', { state: { from: location } })
@@ -347,18 +358,14 @@ export default function CarDetail() {
         return false
       }
     }
+    if (!bookingWindow) {
+      toast.error('Check the pickup and drop-off date and time')
+      return false
+    }
     return true
   }
 
   const buildFormPayload = (extraNotes = '') => {
-    const effectiveDropDate = (() => {
-      if (rentalType === 'day') return formDropDate
-      if (!formPickupDate) return ''
-      const d = new Date(formPickupDate)
-      if (rentalType === 'hour') d.setDate(d.getDate() + Math.ceil(formHours / 24))
-      if (rentalType === 'airport') d.setDate(d.getDate() + 1)
-      return d.toISOString().split('T')[0]
-    })()
     const noteParts = [
       formPickupAddress && `Pickup: ${formPickupAddress}`,
       formDropAddress && `Drop-off: ${formDropAddress}`,
@@ -367,8 +374,7 @@ export default function CarDetail() {
     ].filter(Boolean)
     return {
       carId: id,
-      pickupDate: formPickupDate,
-      dropDate: effectiveDropDate || formPickupDate,
+      ...bookingWindow,
       rentalType,
       ...(rentalType === 'hour' && { totalHours: formHours }),
       driverDetails: { name: formName, email: formEmail, phone: formPhone },
