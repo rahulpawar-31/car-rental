@@ -2,6 +2,7 @@ import { describe, it, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import "express-async-errors";
+import { stubTransactions } from "./helpers/transactions.js";
 
 process.env.RAZORPAY_KEY_SECRET = "key-secret";
 process.env.RAZORPAY_WEBHOOK_SECRET = "hook-secret";
@@ -70,13 +71,18 @@ const webhook = () => {
   const rawBody = JSON.stringify({ event: "payment.captured", payload: { payment: { entity: { order_id: ORDER, id: PAY } } } });
   return razorpayWebhook({ headers: { "x-razorpay-signature": sign(rawBody, "hook-secret") }, rawBody, body: JSON.parse(rawBody) }, res());
 };
-const move = (days = 10) =>
-  rescheduleUserBooking(USER, "b1", { pickupDate: inHours(200).toISOString(), dropDate: inHours(200 + days * 24).toISOString() });
+const move = (days = 10) => {
+  const pickup = inHours(200);
+  return rescheduleUserBooking(USER, "b1", {
+    pickupDate: pickup.toISOString(), dropDate: new Date(pickup.getTime() + days * 24 * HOUR).toISOString(),
+  });
+};
 
 const payment = () => payments.get("p1");
 const refundFlag = () => payment().reconciliation?.status;
 
 beforeEach(() => {
+  stubTransactions();
   booking = {
     _id: "b1", user: USER, car: "car1", status: "pending", paymentStatus: "pending", rentalType: "day",
     pickupDate: inHours(24), dropDate: inHours(48), totalDays: 1, baseAmount: 2000, discountAmount: 0, taxAmount: 360, totalAmount: ONE_DAY,

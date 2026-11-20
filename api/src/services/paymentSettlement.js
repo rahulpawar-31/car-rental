@@ -1,5 +1,7 @@
 import Booking from "../model/booking.model.js";
 import Payment from "../model/payment.model.js";
+import { inTransaction } from "./transaction.js";
+import { AppError } from "../middleware/errorHandler.js";
 
 /** How a captured gateway payment ended up relative to its booking. */
 export const SETTLEMENT = {
@@ -17,9 +19,9 @@ export const SETTLEMENT = {
  * race the other safely:
  *
  * - Refunded payments are terminal; a replayed capture never revives them.
- * - Marking the payment succeeded records that the money arrived. It is not treated as proof the
- *   booking was updated: the booking is checked on every call, so a retry repairs a write that
- *   failed between the two.
+ * - Capture recording, booking confirmation and the refund decision commit together. A failed
+ *   transaction can be retried by either delivery path without exposing a half-finished write.
+ * - A refund-required decision is final: replay cannot reuse that money if the price changes back.
  * - Only a pending booking whose price is still the amount this order was created for is
  *   confirmed. If it was cancelled (or otherwise left the pending state) or repriced before the
  *   capture arrived, the booking is left alone, the payment stays `succeeded` because the money
@@ -27,35 +29,37 @@ export const SETTLEMENT = {
  * - Payment records are never deleted, so a verified capture can always be traced to its order.
  */
 export async function settleCapture(payment, { razorpayPaymentId, razorpaySignature }) {
-  // Only a payment actually marked refunded is terminal here. A record that has gone missing is
-  // not evidence of a refund (see below).
+  return inTransaction(() => settleInTransaction(payment, { razorpayPaymentId, razorpaySignature }));
+}
+
+async function settleInTransaction(payment, { razorpayPaymentId, razorpaySignature }) {
+  // Always load AND write the current payment, even for succeeded captures. Concurrent capture
+  // deliveries and refund decisions must serialize on this row rather than use a stale document.
+  const latest = await Payment.findOneAndUpdate(
+    { razorpayOrderId: payment.razorpayOrderId },
+    {
+      $inc: { settlementRevision: 1 },
+      $setOnInsert: { booking: payment.booking, user: payment.user, amount: payment.amount, method: payment.method, status: "pending" },
+    },
+    { upsert: true, new: true }
+  );
+  payment = latest;
+  // A missing legacy attempt was recreated above; only an actual refund is reported as refunded.
   if (payment.status === "refunded") return { outcome: SETTLEMENT.REFUNDED, payment };
+  if (payment.reconciliation?.status) return { outcome: SETTLEMENT.REFUND_REQUIRED, payment };
 
   let current = payment;
   if (payment.status !== "succeeded") {
     const set = { status: "succeeded", razorpayPaymentId };
     if (razorpaySignature) set.razorpaySignature = razorpaySignature;
-    const recorded = await Payment.findOneAndUpdate(
+    current = (await Payment.findOneAndUpdate(
       { _id: payment._id, status: { $nin: ["succeeded", "refunded"] } },
       set,
       { new: true }
-    );
-    // Lost a race to a concurrent confirm/webhook: carry on from whatever it recorded.
-    current = recorded || (await Payment.findById(payment._id));
-
-    if (!current) {
-      // The record disappeared after it was loaded, but the capture is real and verified. Put it
-      // back from what was loaded, keyed on the order so a concurrent writer can't duplicate it.
-      current = await Payment.findOneAndUpdate(
-        { razorpayOrderId: payment.razorpayOrderId },
-        {
-          $set: { status: "succeeded", ...set },
-          $setOnInsert: { booking: payment.booking, user: payment.user, amount: payment.amount, method: payment.method },
-        },
-        { upsert: true, new: true }
-      );
-    }
+    )) || (await Payment.findById(payment._id));
+    if (!current) throw new AppError("The captured payment could not be recorded. Please retry.", 500);
     if (current.status === "refunded") return { outcome: SETTLEMENT.REFUNDED, payment: current };
+    if (current.reconciliation?.status) return { outcome: SETTLEMENT.REFUND_REQUIRED, payment: current };
   }
 
   // One atomic write decides it: the booking must still be pending *and* still cost what this

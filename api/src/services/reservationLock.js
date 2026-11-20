@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import ReservationLock from "../model/reservationLock.model.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { logger } from "../utils/logger.js";
+import { inTransaction } from "./transaction.js";
 
 const DEFAULTS = {
   // Longer than any claim should take. If a process dies holding the lock, the next claim for
@@ -26,16 +27,16 @@ async function tryAcquire(carId, owner, leaseMs) {
   const takeOver = () =>
     ReservationLock.findOneAndUpdate({ car: carId, ...leaseExpired }, [
       { $set: { owner, expiresAt: { $add: ["$$NOW", leaseMs] } } },
-    ]);
+    ], { session: null });
 
   if (await takeOver()) return true;
 
   // No lock document for this car yet (a live lock would still be there). Add one that is already
   // expired, then compete for it like any other expired lock; the unique key on `car` stops
   // two claims each adding their own.
-  if (!(await ReservationLock.exists({ car: carId }))) {
+  if (!(await ReservationLock.exists({ car: carId }, { session: null }))) {
     try {
-      await ReservationLock.create({ car: carId, owner: "", expiresAt: new Date(0) });
+      await ReservationLock.create([{ car: carId, owner: "", expiresAt: new Date(0) }], { session: null });
     } catch (err) {
       if (err?.code !== DUPLICATE_KEY) throw err;
     }
@@ -49,12 +50,10 @@ async function tryAcquire(carId, owner, leaseMs) {
  * and reschedules, from any request or process) run one at a time. Availability is only
  * trustworthy if the conflict check and the write that follows it happen inside this.
  *
- * It is a lease, not a transaction: it works on any MongoDB deployment, and a crashed holder
- * cannot block the car for longer than `leaseMs`. Because a lease can run out while `fn` is still
- * in flight (a stalled write), the lease alone does not keep a late write from overlapping one made
- * by whoever took over. So `fn` must call `lock.assertHeld()` after its write has completed and undo
- * the write if that throws: a write that finished while the lease was still valid is visible to
- * any claim that can take the lock afterwards, and a write that did not is rolled back.
+ * The callback's writes stay private until commit. A conditional write to the lock document in
+ * the SAME transaction fences the commit against lease takeover/TTL deletion. A lost lease aborts
+ * the transaction; no compensating delete or restore can reclaim dates or overwrite paid prices.
+ * Requires a MongoDB replica set (including a single-node set for local development).
  *
  * @template T
  * @param {any} carId
@@ -84,10 +83,23 @@ export async function withCarLock(carId, fn, options = {}) {
   };
 
   try {
-    return await fn(lock);
+    return await inTransaction(async () => {
+      await lock.assertHeld();
+      const result = await fn(lock);
+      // A read alone is insufficient: another owner can acquire after our snapshot was taken.
+      // Writing the shared lock row makes takeover conflict with this commit. The driver retries
+      // transient conflicts with a fresh snapshot, which rechecks both availability and ownership.
+      const held = await ReservationLock.findOneAndUpdate(
+        { car: carId, owner, ...leaseValid },
+        { $inc: { revision: 1 } },
+        { new: true }
+      );
+      if (!held) throw new AppError("This booking took too long to process and was not saved. Please try again.", 409);
+      return result;
+    });
   } finally {
     // Only removes our own lock; if the lease expired and someone took over, this matches nothing.
-    await ReservationLock.deleteOne({ car: carId, owner }).catch((err) =>
+    await ReservationLock.deleteOne({ car: carId, owner }, { session: null }).catch((err) =>
       logger.error(`Could not release the reservation lock for car ${carId}: ${err.message}`)
     );
   }

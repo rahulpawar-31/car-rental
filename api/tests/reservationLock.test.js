@@ -7,6 +7,7 @@ import Payment from "../src/model/payment.model.js";
 import ReservationLock from "../src/model/reservationLock.model.js";
 import { createBooking, rescheduleUserBooking } from "../src/services/booking.js";
 import { withCarLock } from "../src/services/reservationLock.js";
+import { stubTransactions } from "./helpers/transactions.js";
 
 const HOUR = 60 * 60 * 1000;
 const at = (hours) => new Date(Date.now() + hours * HOUR);
@@ -35,7 +36,8 @@ function installLockStore() {
   mock.method(ReservationLock, "findOneAndUpdate", async (filter, pipeline) => {
     await wait(1);
     const held = locks.get(String(filter.car));
-    if (!held || !leaseState(filter)(held)) return null;
+    if (!held || !leaseState(filter)(held) || (filter.owner && held.owner !== filter.owner)) return null;
+    if (!Array.isArray(pipeline)) return { ...held, revision: (held.revision || 0) + 1 };
     const { owner, expiresAt } = pipeline[0].$set;
     Object.assign(held, { owner, expiresAt: dbNow + expiresAt.$add[1] });
     return { ...held };
@@ -49,6 +51,7 @@ function installLockStore() {
     return { _id: "lock" };
   });
   mock.method(ReservationLock, "create", async (doc) => {
+    [doc] = doc;
     await wait(1);
     if (locks.has(String(doc.car))) throw unique();
     locks.set(String(doc.car), { car: String(doc.car), owner: doc.owner, expiresAt: doc.expiresAt.getTime() });
@@ -125,6 +128,7 @@ const request = (pickup, drop) => ({ carId: "car1", pickupDate: at(pickup).toISO
 const noEmail = () => ({ sendEmail: async () => {} });
 
 beforeEach(() => {
+  stubTransactions();
   locks = new Map();
   bookings = [];
   inserts = 0;
@@ -303,30 +307,30 @@ describe("withCarLock", () => {
   });
 
   it("does not remove a lock that was taken over after its own lease ran out", async () => {
-    await withCarLock("car1", async () => {
+    await assert.rejects(withCarLock("car1", async () => {
       dbNow += 20_000; // lease over
-      locks.get("car1").owner = "newer-claim"; // and another claim has taken it over
-    });
+      locks.get("car1").owner = "newer-claim";
+    }), { statusCode: 409 });
 
     assert.equal(locks.get("car1")?.owner, "newer-claim");
   });
 
   it("assertHeld passes while the lease is valid and fails once it has run out, even with nobody else in", async () => {
-    await withCarLock("car1", async (lock) => {
+    await assert.rejects(withCarLock("car1", async (lock) => {
       await lock.assertHeld();
       dbNow += 20_000;
       await assert.rejects(lock.assertHeld(), { statusCode: 409, message: /took too long/ });
-    });
+    }), { statusCode: 409 });
   });
 
   it("assertHeld fails once another claim has taken the lock over", async () => {
-    await withCarLock("car1", async (lock) => {
+    await assert.rejects(withCarLock("car1", async (lock) => {
       dbNow += 20_000;
       await withCarLock("car1", async () => {
         // the first claim's lease is gone and this one holds the car now
         await assert.rejects(lock.assertHeld(), { statusCode: 409 });
       });
-    });
+    }), { statusCode: 409 });
   });
 
   it("does not make different cars wait for each other", async () => {
@@ -339,128 +343,4 @@ describe("withCarLock", () => {
   });
 });
 
-describe("a claim that stalls past its lease", () => {
-  const LEASE = 15_000;
-  const gate = () => {
-    let open;
-    const closed = new Promise((resolve) => (open = resolve));
-    return { closed, open };
-  };
-  const untilStalled = async (reached) => {
-    while (!reached()) await wait(2);
-  };
-
-  it("cannot commit a booking that overlaps the one made by the request that took over", async () => {
-    const releaseA = gate();
-    let aInserting = false;
-    stall.create = async (n) => {
-      if (n === 0) {
-        aInserting = true;
-        await releaseA.closed; // A's insert is held back, invisible to everyone else
-      }
-    };
-
-    const a = createBooking({ user: user(1), input: request(48, 96) }, noEmail());
-    a.catch(() => {}); // settled later
-    await untilStalled(() => aInserting);
-
-    dbNow += LEASE + 1_000; // A's lease runs out while its insert is still in flight
-
-    // B takes the lock over, sees no persisted booking from A, and books the same dates.
-    await createBooking({ user: user(2), input: request(60, 100) }, noEmail());
-    assert.equal(live().length, 1);
-
-    releaseA.open(); // A's insert now lands
-    await assert.rejects(a, { statusCode: 409, message: /took too long/ });
-
-    assert.equal(live().length, 1, "A's overlapping booking must not survive");
-    assert.equal(live()[0].user, "user2");
-    assert.equal(hasOverlap(live()), false);
-  });
-
-  it("gives the losing request's coupon claim back", async () => {
-    const releaseA = gate();
-    let aInserting = false;
-    stall.create = async (n) => {
-      if (n === 0) {
-        aInserting = true;
-        await releaseA.closed;
-      }
-    };
-    mock.method(Coupon, "findOne", async () => ({ _id: "c1", minBookingAmount: 0, perUserLimit: 1, usageLimit: 0, type: "fixed", value: 100 }));
-    mock.method(Coupon, "findOneAndUpdate", async () => ({ _id: "c1" }));
-    const release = mock.method(Coupon, "updateOne", async () => ({}));
-
-    const a = createBooking({ user: user(1), input: { ...request(48, 96), couponCode: "save" } }, noEmail());
-    a.catch(() => {});
-    await untilStalled(() => aInserting);
-    dbNow += LEASE + 1_000;
-    await createBooking({ user: user(2), input: request(60, 100) }, noEmail());
-    releaseA.open();
-    await assert.rejects(a, { statusCode: 409 });
-
-    assert.equal(release.mock.callCount(), 1);
-  });
-
-  it("keeps a slow booking that finished inside its lease, and blocks a claim that arrives in the meantime", async () => {
-    const releaseA = gate();
-    let aInserting = false;
-    stall.create = async (n) => {
-      if (n === 0) {
-        aInserting = true;
-        await releaseA.closed;
-      }
-    };
-
-    const a = createBooking({ user: user(1), input: request(48, 96) }, noEmail());
-    await untilStalled(() => aInserting);
-    const b = createBooking({ user: user(2), input: request(60, 100) }, { ...noEmail() }); // waits for the lock
-    b.catch(() => {});
-    await wait(20);
-    releaseA.open(); // A finishes well within its lease
-
-    await a;
-    await assert.rejects(b, { statusCode: 409, message: "Car is not available for the selected dates" });
-    assert.equal(live().length, 1);
-    assert.equal(live()[0].user, "user1");
-  });
-
-  it("cannot move a booking onto dates another request was given after the lease ran out", async () => {
-    const original = {
-      _id: "r1", user: "user1", car: "car1", status: "confirmed", rentalType: "day", paymentStatus: "pending",
-      pickupDate: at(24), dropDate: at(72), totalDays: 2, baseAmount: 4000, discountAmount: 0, taxAmount: 720, totalAmount: 9720,
-    };
-    bookings.push({ ...original });
-    const releaseSave = gate();
-    let saving = false;
-    stall.write = async () => {
-      saving = true;
-      await releaseSave.closed; // the reschedule's write is held back
-    };
-
-    const move = rescheduleUserBooking("user1", "r1", { pickupDate: at(500).toISOString(), dropDate: at(548).toISOString() });
-    move.catch(() => {});
-    await untilStalled(() => saving);
-
-    dbNow += LEASE + 1_000;
-    stall.write = undefined;
-    await createBooking({ user: user(2), input: request(510, 558) }, noEmail()); // takes the new dates
-
-    releaseSave.open(); // the reschedule's write lands, on top of them
-    await assert.rejects(move, { statusCode: 409, message: /took too long/ });
-
-    const moved = bookings.find((b) => b._id === "r1");
-    assert.deepEqual([moved.pickupDate, moved.dropDate, moved.totalDays, moved.totalAmount], [original.pickupDate, original.dropDate, 2, 9720]);
-    assert.equal(hasOverlap(live()), false);
-    assert.equal(live().length, 2);
-  });
-
-  it("recovers from a crashed holder: its expired lock is simply taken over", async () => {
-    locks.set("car1", { car: "car1", owner: "crashed", expiresAt: dbNow - 1 });
-
-    await createBooking({ user: user(1), input: request(48, 96) }, noEmail());
-
-    assert.equal(live().length, 1);
-    assert.equal(locks.size, 0);
-  });
-});
+// Lease-expiry write isolation is covered against a real replica set in reservationLock.mongo.test.js.

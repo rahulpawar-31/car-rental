@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import "express-async-errors";
+import { stubTransactions } from "./helpers/transactions.js";
 
 process.env.RAZORPAY_KEY_SECRET = "key-secret";
 process.env.RAZORPAY_WEBHOOK_SECRET = "hook-secret";
@@ -52,7 +53,8 @@ function matches(doc, filter) {
 }
 
 function apply(doc, update) {
-  const fields = update.$set ?? update;
+  if (update.$inc) for (const [key, value] of Object.entries(update.$inc)) doc[key] = (doc[key] || 0) + value;
+  const fields = update.$set ?? (Object.keys(update).some((key) => key.startsWith("$")) ? {} : update);
   for (const [key, value] of Object.entries(fields)) {
     const path = key.split(".");
     const last = path.pop();
@@ -115,6 +117,15 @@ const webhook = (event = "payment.captured") => {
 };
 
 beforeEach(() => {
+  stubTransactions(async (fn) => {
+    const beforePayment = structuredClone(payment);
+    const beforeBooking = structuredClone(booking);
+    try { return await fn(); } catch (err) {
+      payment = beforePayment;
+      booking = beforeBooking;
+      throw err;
+    }
+  });
   payment = { _id: "p1", booking: "b1", user: USER, amount: 1180, razorpayOrderId: ORDER, status: "pending" };
   booking = { _id: "b1", user: USER, status: "pending", paymentStatus: "pending", totalAmount: 1180, refundAmount: 0 };
   bookingWrites = 0;
@@ -169,7 +180,7 @@ describe("a failure between the payment write and the booking write", () => {
     failNextBookingWrite = true;
 
     await assert.rejects(confirm(), /transient database error/);
-    assert.equal(payment.status, "succeeded");
+    assert.equal(payment.status, "pending", "the capture write aborts with the booking write");
     assert.equal(booking.status, "pending");
 
     const r = await confirm();
@@ -376,6 +387,7 @@ describe("a payment record that goes missing mid-settlement", () => {
     loadThenLose();
     await webhook();
     mock.restoreAll();
+    stubTransactions();
     // restoreAll above dropped every stub: reinstall them over the recreated record
     const payments = store(() => payment, { insert: (doc) => (payment = doc) });
     for (const method of Object.keys(payments)) mock.method(Payment, method, payments[method]);

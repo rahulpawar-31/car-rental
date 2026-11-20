@@ -18,6 +18,7 @@ const paymentSchema = new mongoose.Schema(
     razorpayOrderId: { type: String, unique: true, sparse: true },
     razorpayPaymentId: { type: String, unique: true, sparse: true },
     razorpaySignature: String,
+    settlementRevision: { type: Number, default: 0 },
     razorpayRefundId: String,
     gatewayResponse: { type: mongoose.Schema.Types.Mixed },
     refundAmount: { type: Number, default: 0 },

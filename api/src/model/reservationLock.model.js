@@ -7,6 +7,7 @@ const reservationLockSchema = new mongoose.Schema({
   // Empty on the already-expired placeholder a first claim competes for.
   owner: { type: String, default: "" },
   expiresAt: { type: Date, required: true },
+  revision: { type: Number, default: 0 },
 });
 
 // Sweeps up locks a crashed request never released. Takeover of an expired lock does not wait for

@@ -6,6 +6,7 @@ import Coupon from "../src/model/coupon.model.js";
 import Location from "../src/model/location.model.js";
 import Payment from "../src/model/payment.model.js";
 import ReservationLock from "../src/model/reservationLock.model.js";
+import { stubTransactions } from "./helpers/transactions.js";
 import {
   parseRentalWindow,
   assertRentalSpan,
@@ -24,6 +25,7 @@ const inHours = (h) => new Date(Date.now() + h * HOUR);
 // Nothing else is booking this car: the reservation lock is always free. (The lock itself, and
 // what happens when it is contended, is covered in reservationLock.test.js.)
 beforeEach(() => {
+  stubTransactions();
   mock.method(ReservationLock, "findOneAndUpdate", async () => ({})); // taken straight away
   mock.method(ReservationLock, "exists", async () => ({ _id: "lock" })); // and still held at commit
   mock.method(ReservationLock, "create", async () => ({}));
@@ -462,7 +464,10 @@ describe("cancelUserBooking", () => {
 
 describe("rescheduleUserBooking", () => {
   const car = { _id: "car1", pricePerDay: 2000, securityDeposit: 5000 };
-  const dates = () => ({ pickupDate: inHours(100).toISOString(), dropDate: inHours(148).toISOString() });
+  const dates = () => {
+    const pickup = inHours(100);
+    return { pickupDate: pickup.toISOString(), dropDate: new Date(pickup.getTime() + 48 * HOUR).toISOString() };
+  };
   const existing = (overrides = {}) => ({
     _id: "b1",
     car: "car1",
@@ -657,24 +662,18 @@ describe("rescheduleUserBooking", () => {
     assert.equal(write.mock.callCount(), 0);
   });
 
-  describe("when the reservation lock was lost before the write completed", () => {
-    it("restores only its own change and fails with a retryable 409", async () => {
-      const { write } = setup(existing());
-      ReservationLock.exists.mock.restore();
-      mock.method(ReservationLock, "exists", async () => null); // lease gone by the time the write returns
-      const restore = mock.method(Booking, "updateOne", async () => ({}));
+  it("aborts a lost lease without a compensating write that could overwrite another booking", async () => {
+    const { write } = setup(existing());
+    ReservationLock.findOneAndUpdate.mock.restore();
+    mock.method(ReservationLock, "findOneAndUpdate", async (filter) => filter.owner ? null : {});
+    const restore = mock.method(Booking, "updateOne", async () => ({}));
 
-      await assert.rejects(rescheduleUserBooking("user1", "b1", dates()), { statusCode: 409, message: /took too long/ });
+    await assert.rejects(rescheduleUserBooking("user1", "b1", dates()), { statusCode: 409, message: /took too long/ });
 
-      assert.equal(write.mock.callCount(), 1);
-      const [filter, update] = restore.mock.calls[0].arguments;
-      assert.equal(filter._id, "b1");
-      assert.equal(filter.totalAmount, 9720, "matches only the document it wrote");
-      assert.equal("paymentStatus" in update.$set, false, "payment state is never rolled back");
-      assert.equal(update.$set.totalAmount, 7360);
-      assert.equal(update.$set.totalDays, 1);
-    });
+    assert.equal(write.mock.callCount(), 1);
+    assert.equal(restore.mock.callCount(), 0, "the transaction aborts rather than restoring public data");
   });
+
 });
 
 describe("previewCoupon", () => {

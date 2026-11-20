@@ -1,8 +1,8 @@
 // Runs the reservation lock and the booking race against a real MongoDB, because the lock relies
 // on server-side behaviour (unique keys, $$NOW, atomic updates) that mocks can only imitate.
-// Skipped unless MONGO_TEST_URL points at a throwaway database, e.g.
-//   MONGO_TEST_URL=mongodb://127.0.0.1:27017/car_rental_test npm test
-// It deletes everything in the cars, bookings and reservationlocks collections of that database.
+// Skipped unless MONGO_TEST_URL points at a throwaway replica set, e.g.
+//   MONGO_TEST_URL=mongodb://127.0.0.1:27017/car_rental_test?replicaSet=rs0 npm test
+// Clears the cars, bookings and reservationlocks collections in car_rental_test_reservations.
 import { describe, it, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
@@ -17,7 +17,9 @@ describe("reservation lock on a real MongoDB", { skip }, () => {
   let ReservationLock, Booking, Car, withCarLock, createBooking;
 
   before(async () => {
-    await mongoose.connect(url);
+    await mongoose.connect(url, { dbName: "car_rental_test_reservations" });
+    const hello = await mongoose.connection.db.admin().command({ hello: 1 });
+    assert.ok(hello.setName || hello.msg === "isdbgrid", "MONGO_TEST_URL must point to a replica set or mongos");
     ({ default: ReservationLock } = await import("../src/model/reservationLock.model.js"));
     ({ default: Booking } = await import("../src/model/booking.model.js"));
     ({ default: Car } = await import("../src/model/car.model.js"));
@@ -61,23 +63,23 @@ describe("reservation lock on a real MongoDB", { skip }, () => {
   it("takes over an expired lease, after which the old holder no longer holds the lock", async () => {
     const car = new mongoose.Types.ObjectId();
 
-    await withCarLock(car, async (first) => {
+    await assert.rejects(withCarLock(car, async (first) => {
       await first.assertHeld();
-      await ReservationLock.updateOne({ car }, { $set: { expiresAt: new Date(Date.now() - 1000) } }); // lease runs out
+      await ReservationLock.updateOne({ car }, { $set: { expiresAt: new Date(Date.now() - 1000) } }, { session: null });
 
       await withCarLock(car, async (second) => {
         await second.assertHeld();
         await assert.rejects(first.assertHeld(), { statusCode: 409 });
       });
-    });
+    }), { statusCode: 409 });
   });
 
   it("fails assertHeld when the lease has simply run out", async () => {
     const car = new mongoose.Types.ObjectId();
-    await withCarLock(car, async (lock) => {
-      await ReservationLock.updateOne({ car }, { $set: { expiresAt: new Date(Date.now() - 1) } });
-      await assert.rejects(lock.assertHeld(), { statusCode: 409 });
-    });
+    await assert.rejects(withCarLock(car, async (lock) => {
+      await ReservationLock.updateOne({ car }, { $set: { expiresAt: new Date(Date.now() - 1) } }, { session: null });
+      await lock.assertHeld(); // the snapshot may still see the old lease; the commit WRITE fences it
+    }), { statusCode: 409 });
   });
 
   it("books one of many simultaneous overlapping requests for the same car", async () => {
